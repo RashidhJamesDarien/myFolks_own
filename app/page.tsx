@@ -1,69 +1,2381 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type View =
+  | "discover"
+  | "friends"
+  | "messages"
+  | "create"
+  | "profile"
+  | "settings";
+
+type Profile = {
+  profile_id: string;
+  display_name: string;
+  featured_interest: string;
+  bio?: string;
+  visibility?: string;
+  allows_messages?: boolean;
+  photo_url?: string;
+};
+
+type MessageAsset = {
+  url: string;
+  name?: string;
+  type?: string;
+  size?: number;
+};
+
+type Message = {
+  id?: string;
+  text?: string;
+  sender_profile_id?: string;
+  created_at?: string;
+  message_asset_url?: string;
+  message_asset_name?: string;
+};
+
+const API = {
+  health: "/api/health",
+  discover: "/api/discover/profiles",
+  friendRequests: "/api/friend-requests",
+  messages: "/api/messages",
+  reports: "/api/reports",
+  blocks: "/api/blocks",
+  settings: "/api/settings/me",
+  profile: "/api/profiles/me",
+  signOut: "/api/auth/signout",
+};
+
+const MAX_PROFILE_PHOTO_SIZE = 10 * 1024 * 1024;
+const MAX_MESSAGE_ASSET_SIZE = 10 * 1024 * 1024;
+
+function initials(name: string) {
+  return String(name || "myFolks")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+function shuffle<T>(items: T[]) {
+  const copy = [...items];
+
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+
+  return copy;
+}
+
+async function apiRequest(
+  path: string,
+  options: RequestInit = {},
+): Promise<any> {
+  const response = await fetch(path, {
+    credentials: "include",
+    ...options,
+    headers: {
+      Accept: "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("request_failed");
+  }
+
+  const type = response.headers.get("content-type") || "";
+
+  return type.includes("application/json")
+    ? response.json()
+    : {};
+}
+
+function Icon({
+  name,
+  size = 20,
+  strokeWidth = 2,
+}: {
+  name: string;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+
+  const paths: Record<string, React.ReactNode> = {
+    menu: (
+      <>
+        <path d="M4 6h16" />
+        <path d="M4 12h16" />
+        <path d="M4 18h16" />
+      </>
+    ),
+    x: (
+      <>
+        <path d="M6 6l12 12" />
+        <path d="M18 6L6 18" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </>
+    ),
+    loader: (
+      <>
+        <path d="M21 12a9 9 0 1 1-6.7-8.7" />
+      </>
+    ),
+    users: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+    image: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="m21 15-5-5L5 21" />
+      </>
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </>
+    ),
+    heart: (
+      <path d="M20.8 8.9c0 5.1-8.8 10.1-8.8 10.1S3.2 14 3.2 8.9A4.9 4.9 0 0 1 12 6.2a4.9 4.9 0 0 1 8.8 2.7Z" />
+    ),
+    messages: (
+      <>
+        <path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4-.9L3 21l1.9-4.1A8.2 8.2 0 0 1 3 11.5 8.5 8.5 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5Z" />
+        <path d="M8 11h.01" />
+        <path d="M12 11h.01" />
+        <path d="M16 11h.01" />
+      </>
+    ),
+    arrowLeft: (
+      <>
+        <path d="m15 18-6-6 6-6" />
+        <path d="M9 12h12" />
+      </>
+    ),
+    more: (
+      <>
+        <circle cx="5" cy="12" r="1" />
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
+      </>
+    ),
+    sparkle: (
+      <>
+        <path d="m12 3-1.2 5.8L5 10l5.8 1.2L12 17l1.2-5.8L19 10l-5.8-1.2L12 3Z" />
+        <path d="m19 16-.6 2.4L16 19l2.4.6L19 22l.6-2.4L22 19l-2.4-.6L19 16Z" />
+      </>
+    ),
+    close: (
+      <>
+        <path d="M6 6l12 12" />
+        <path d="M18 6 6 18" />
+      </>
+    ),
+    plusImage: (
+      <>
+        <rect x="3" y="3" width="15" height="15" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="m18 14 3 3" />
+        <path d="M19.5 10v6" />
+        <path d="M16.5 13h6" />
+      </>
+    ),
+    handshake: (
+      <>
+        <path d="m11 5 2 2 2-2 5 5-3 3-2-2-3 3-4-4" />
+        <path d="m5 10-3 3 4 4 3-3" />
+        <path d="m14 15 3 3" />
+        <path d="m17 12 3 3" />
+      </>
+    ),
+  };
+
+  return <svg {...common}>{paths[name] ?? paths.sparkle}</svg>;
+}
+
+function Avatar({
+  profile,
+  large = false,
+}: {
+  profile?: Profile | null;
+  large?: boolean;
+}) {
+  if (profile?.photo_url) {
+    return (
+      <img
+        src={profile.photo_url}
+        alt={profile.display_name}
+        className={`avatar-image ${large ? "avatar-large" : ""}`}
+      />
+    );
+  }
+
+  return (
+    <div className={`avatar ${large ? "avatar-large" : ""}`}>
+      {initials(profile?.display_name || "myFolks")}
+    </div>
+  );
+}
 
 export default function Home() {
+  const [view, setView] = useState<View>("discover");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [discoverState, setDiscoverState] = useState<
+    "loading" | "ready" | "empty" | "error"
+  >("loading");
+
+  const [pairQueue, setPairQueue] = useState<Profile[][]>([]);
+  const [pairIndex, setPairIndex] = useState(0);
+  const [positiveSelections, setPositiveSelections] = useState<Profile[]>([]);
+  const [blockedProfiles, setBlockedProfiles] = useState<Set<string>>(
+    new Set(),
+  );
+
+  const [completionProfile, setCompletionProfile] =
+    useState<Profile | null>(null);
+
+  const [dialog, setDialog] = useState<{
+    title: string;
+    message: string;
+    action: (() => Promise<void>) | null;
+  } | null>(null);
+
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [profileConfirmed, setProfileConfirmed] = useState(false);
+
+  const [activeMessageProfile, setActiveMessageProfile] =
+    useState<Profile | null>(null);
+  const [messageOpen, setMessageOpen] = useState(false);
+
+  const [settings, setSettings] = useState({
+    visibility: "published",
+    lastSeenVisibility: "connections",
+    interestDisplay: true,
+    messagePermission: "friends_only",
+    friendNotifications: true,
+    messageNotifications: true,
+  });
+
+  const [friendSearch, setFriendSearch] = useState("");
+
+  const [messageText, setMessageText] = useState("");
+  const [messageAsset, setMessageAsset] = useState<File | null>(null);
+  const [messageStatus, setMessageStatus] = useState<{
+    text: string;
+    type: "info" | "success" | "error";
+  } | null>(null);
+  const [messageSending, setMessageSending] = useState(false);
+  const messageFileInput = useRef<HTMLInputElement>(null);
+
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [profileStatus, setProfileStatus] = useState<{
+    text: string;
+    type: "info" | "success" | "error";
+  } | null>(null);
+
+  const [formStatus, setFormStatus] = useState<{
+    text: string;
+    type: "info" | "success" | "error";
+  } | null>(null);
+
+  const [settingsStatus, setSettingsStatus] = useState<{
+    text: string;
+    type: "info" | "success" | "error";
+  } | null>(null);
+
+  const [discoverNotice, setDiscoverNotice] = useState<{
+    text: string;
+    type: "info" | "success" | "error";
+  } | null>(null);
+
+  const [messageCount, setMessageCount] = useState(0);
+
+  const currentPair = pairQueue[pairIndex] || [];
+
+  const availableProfiles = useMemo(
+    () =>
+      profiles.filter((profile) => !blockedProfiles.has(profile.profile_id)),
+    [profiles, blockedProfiles],
+  );
+
+  const friends = useMemo(() => {
+    /*
+     * The original HTML did not have a dedicated friends-loading endpoint.
+     * Profiles that have been positively selected are therefore used locally
+     * until the backend exposes an accepted-connections endpoint.
+     */
+    const unique = new Map<string, Profile>();
+
+    positiveSelections.forEach((profile) => {
+      if (!blockedProfiles.has(profile.profile_id)) {
+        unique.set(profile.profile_id, profile);
+      }
+    });
+
+    return Array.from(unique.values()).filter((friend) =>
+      friend.display_name
+        .toLocaleLowerCase()
+        .includes(friendSearch.toLocaleLowerCase().trim()),
+    );
+  }, [positiveSelections, blockedProfiles, friendSearch]);
+
+  const showView = (nextView: View) => {
+    setView(nextView);
+    setMobileMenuOpen(false);
+  };
+
+  const setStatus = (
+    type: "info" | "success" | "error",
+    text: string,
+    target: "discover" | "profile" | "settings" | "message",
+  ) => {
+    const value = { text, type };
+
+    if (target === "discover") setDiscoverNotice(value);
+    if (target === "profile") setFormStatus(value);
+    if (target === "settings") setSettingsStatus(value);
+    if (target === "message") setMessageStatus(value);
+  };
+
+  const buildPairQueue = (sourceProfiles = profiles) => {
+    const available = sourceProfiles.filter(
+      (profile) => !blockedProfiles.has(profile.profile_id),
+    );
+
+    const pairs: Profile[][] = [];
+
+    for (let i = 0; i < available.length; i += 1) {
+      for (let j = i + 1; j < available.length; j += 1) {
+        pairs.push([available[i], available[j]]);
+      }
+    }
+
+    const shuffled = shuffle(pairs);
+
+    setPairQueue(shuffled);
+    setPairIndex(0);
+  };
+
+  const loadRemoteProfiles = async () => {
+    setDiscoverState("loading");
+
+    try {
+      const data = await apiRequest(API.discover);
+
+      const loadedProfiles: Profile[] = (
+        data.profiles || data || []
+      ).filter((item: Profile) => item?.profile_id);
+
+      setProfiles(loadedProfiles);
+      setDiscoverState(loadedProfiles.length ? "ready" : "empty");
+
+      buildPairQueue(loadedProfiles);
+    } catch {
+      setProfiles([]);
+      setPairQueue([]);
+      setPairIndex(0);
+      setDiscoverState("error");
+    }
+  };
+
+  const loadCurrentProfile = async () => {
+    try {
+      if (!backendConnected) return;
+
+      const data = await apiRequest(API.profile);
+      const profile = data?.profile || data;
+
+      if (profile?.profile_id) {
+        setCurrentProfile(profile);
+        setProfileConfirmed(true);
+      }
+    } catch {
+      // Profile creation remains available.
+    }
+  };
+
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        await apiRequest(API.health);
+        setBackendConnected(true);
+      } catch {
+        setBackendConnected(false);
+      }
+    };
+
+    initialize();
+  }, []);
+
+  useEffect(() => {
+    if (!backendConnected) return;
+
+    loadRemoteProfiles();
+    loadCurrentProfile();
+  }, [backendConnected]);
+
+  useEffect(() => {
+    return () => {
+      if (profilePhotoUrl) {
+        URL.revokeObjectURL(profilePhotoUrl);
+      }
+    };
+  }, [profilePhotoUrl]);
+
+  const chooseInterest = (index: number) => {
+    const chosen = currentPair[index];
+
+    if (!chosen) return;
+
+    setPositiveSelections((previous) => [...previous, chosen]);
+
+    const nextIndex = pairIndex + 1;
+
+    if (nextIndex >= pairQueue.length) {
+      setCompletionProfile(chosen);
+      return;
+    }
+
+    setPairIndex(nextIndex);
+  };
+
+  const skipPair = () => {
+    const nextIndex = pairIndex + 1;
+
+    if (nextIndex >= pairQueue.length) {
+      setCompletionProfile(
+        positiveSelections[positiveSelections.length - 1] || null,
+      );
+      return;
+    }
+
+    setPairIndex(nextIndex);
+  };
+
+  const reportProfile = async (profile: Profile) => {
+    try {
+      if (!backendConnected) {
+        throw new Error("backend_unavailable");
+      }
+
+      await apiRequest(API.reports, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          reported_profile_id: profile.profile_id,
+        }),
+      });
+
+      setStatus("success", "Report submitted for review.", "discover");
+    } catch {
+      setStatus(
+        "error",
+        "The report could not be saved remotely.",
+        "discover",
+      );
+    }
+  };
+
+  const blockProfile = async (profile: Profile) => {
+    try {
+      if (!backendConnected) {
+        throw new Error("backend_unavailable");
+      }
+
+      await apiRequest(API.blocks, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          blocked_profile_id: profile.profile_id,
+        }),
+      });
+
+      const nextBlocked = new Set(blockedProfiles);
+      nextBlocked.add(profile.profile_id);
+
+      setBlockedProfiles(nextBlocked);
+
+      setStatus("success", "Profile blocked.", "discover");
+
+      buildPairQueue(
+        profiles.filter((item) => item.profile_id !== profile.profile_id),
+      );
+    } catch {
+      setStatus(
+        "error",
+        "The block could not be saved remotely.",
+        "discover",
+      );
+    }
+  };
+
+  const sendFriendRequest = async () => {
+    if (!completionProfile) return;
+
+    try {
+      if (!backendConnected) {
+        throw new Error("backend_unavailable");
+      }
+
+      await apiRequest(API.friendRequests, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          profile_id: completionProfile.profile_id,
+        }),
+      });
+
+      setStatus(
+        "success",
+        "Request sent. It stays pending until they choose to accept.",
+        "discover",
+      );
+
+      setCompletionProfile(null);
+    } catch {
+      setStatus(
+        "error",
+        "The request could not be saved. No remote request was created.",
+        "discover",
+      );
+    }
+  };
+
+  const openSelectedMessage = (profile: Profile) => {
+    if (!profile.allows_messages) {
+      setStatus(
+        "info",
+        "A friend request must be accepted before you can message this person.",
+        "discover",
+      );
+      return;
+    }
+
+    setActiveMessageProfile(profile);
+    setMessageOpen(true);
+    setCompletionProfile(null);
+    setView("messages");
+  };
+
+  const chooseProfilePhoto = (file?: File) => {
+    if (!file) return;
+
+    const allowed = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ].includes(file.type);
+
+    if (!allowed || file.size > MAX_PROFILE_PHOTO_SIZE) {
+      setProfileStatus({
+        text: "Choose a JPG, PNG, or WebP image no larger than 10 MB.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (profilePhotoUrl) {
+      URL.revokeObjectURL(profilePhotoUrl);
+    }
+
+    const url = URL.createObjectURL(file);
+
+    setProfilePhoto(file);
+    setProfilePhotoUrl(url);
+
+    setProfileStatus({
+      text: "Photo ready to upload when you create your profile.",
+      type: "success",
+    });
+  };
+
+  const uploadProfilePhoto = async (file: File) => {
+    return new Promise<any>((resolve, reject) => {
+      const request = new XMLHttpRequest();
+
+      request.open("POST", "/api/profile-assets");
+      request.withCredentials = true;
+      request.setRequestHeader("Accept", "application/json");
+
+      request.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          setProfileStatus({
+            text: `Uploading profile photo — ${Math.round(
+              (event.loaded / event.total) * 100,
+            )}%`,
+            type: "info",
+          });
+        }
+      };
+
+      request.onload = () => {
+        if (request.status >= 200 && request.status < 300) {
+          resolve(JSON.parse(request.responseText || "{}"));
+        } else {
+          reject(new Error("upload_failed"));
+        }
+      };
+
+      request.onerror = () => reject(new Error("upload_failed"));
+
+      const body = new FormData();
+      body.append("file", file);
+
+      request.send(body);
+    });
+  };
+
+  const createProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const nameInput = document.getElementById(
+      "profile-name",
+    ) as HTMLInputElement;
+
+    const interestInput = document.getElementById(
+      "profile-interest",
+    ) as HTMLInputElement;
+
+    const bioInput = document.getElementById(
+      "profile-bio",
+    ) as HTMLTextAreaElement;
+
+    try {
+      if (!backendConnected) {
+        throw new Error("backend_unavailable");
+      }
+
+      let uploadedPhoto: any = null;
+
+      if (profilePhoto) {
+        uploadedPhoto = await uploadProfilePhoto(profilePhoto);
+      }
+
+      const profile: Record<string, any> = {
+        display_name: nameInput.value.trim(),
+        featured_interest: interestInput.value.trim(),
+        bio: bioInput.value.trim(),
+        visibility: "published",
+      };
+
+      if (uploadedPhoto) {
+        profile.photo_url = uploadedPhoto.url;
+        profile.photo_name = uploadedPhoto.name || profilePhoto.name;
+        profile.photo_type = uploadedPhoto.type || profilePhoto.type;
+        profile.photo_size = uploadedPhoto.size || profilePhoto.size;
+        profile.photo_count = 1;
+      }
+
+      const saved = await apiRequest(API.profile, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(profile),
+      });
+
+      const savedProfile = saved.profile || saved || profile;
+
+      setCurrentProfile(savedProfile);
+      setProfileConfirmed(true);
+
+      setFormStatus({
+        text: "Profile created successfully.",
+        type: "success",
+      });
+
+      await loadRemoteProfiles();
+
+      showView("profile");
+    } catch {
+      setFormStatus({
+        text: "Your profile could not be saved. No remote profile was created.",
+        type: "error",
+      });
+    }
+  };
+
+  const sendMessage = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (
+      (!messageText.trim() && !messageAsset) ||
+      !activeMessageProfile
+    ) {
+      setStatus(
+        "error",
+        "Write a message or choose an attachment before sending.",
+        "message",
+      );
+      return;
+    }
+
+    setMessageSending(true);
+
+    try {
+      if (!backendConnected) {
+        throw new Error("offline");
+      }
+
+      let asset: MessageAsset | null = null;
+
+      if (messageAsset) {
+        asset = await new Promise<MessageAsset>((resolve, reject) => {
+          const request = new XMLHttpRequest();
+
+          request.open("POST", "/api/message-assets");
+          request.withCredentials = true;
+          request.setRequestHeader("Accept", "application/json");
+
+          request.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              setMessageStatus({
+                text: `Uploading ${Math.round(
+                  (event.loaded / event.total) * 100,
+                )}%`,
+                type: "info",
+              });
+            }
+          };
+
+          request.onload = () => {
+            if (request.status >= 200 && request.status < 300) {
+              resolve(JSON.parse(request.responseText || "{}"));
+            } else {
+              reject(new Error("upload_failed"));
+            }
+          };
+
+          request.onerror = () => reject(new Error("upload_failed"));
+
+          const body = new FormData();
+          body.append("file", messageAsset);
+          body.append(
+            "profile_id",
+            activeMessageProfile.profile_id,
+          );
+
+          request.send(body);
+        });
+      }
+
+      await apiRequest(API.messages, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          profile_id: activeMessageProfile.profile_id,
+          text: messageText.trim(),
+          message_asset_url: asset?.url,
+          message_asset_name: asset?.name,
+          message_asset_type: asset?.type,
+          message_asset_size: asset?.size,
+        }),
+      });
+
+      setMessageText("");
+      setMessageAsset(null);
+      setMessageCount(0);
+
+      setMessageStatus({
+        text: "Message sent.",
+        type: "success",
+      });
+    } catch {
+      setMessageStatus({
+        text: "Your message or attachment could not be sent. Nothing was shared.",
+        type: "error",
+      });
+    } finally {
+      setMessageSending(false);
+    }
+  };
+
+  const saveSettings = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    try {
+      if (!backendConnected) {
+        throw new Error("backend_unavailable");
+      }
+
+      await apiRequest(API.settings, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          visibility: settings.visibility,
+          profile_interest_display: settings.interestDisplay
+            ? "shown"
+            : "hidden",
+          message_permission: settings.messagePermission,
+          last_seen_visibility: settings.lastSeenVisibility,
+          friend_request_notifications:
+            settings.friendNotifications,
+          message_notifications: settings.messageNotifications,
+        }),
+      });
+
+      setSettingsStatus({
+        text: "Settings saved.",
+        type: "success",
+      });
+    } catch {
+      setSettingsStatus({
+        text: "Settings could not be saved remotely. Your current choices remain on this device.",
+        type: "error",
+      });
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      if (!backendConnected) {
+        throw new Error("backend_unavailable");
+      }
+
+      await apiRequest(API.signOut, {
+        method: "POST",
+      });
+
+      setCurrentProfile(null);
+      setProfileConfirmed(false);
+      setView("discover");
+    } catch {
+      setSettingsStatus({
+        text: "Sign out could not be completed.",
+        type: "error",
+      });
+    }
+  };
+
+  const deleteProfile = async () => {
+    try {
+      if (!backendConnected) {
+        throw new Error("backend_unavailable");
+      }
+
+      await apiRequest(API.profile, {
+        method: "DELETE",
+      });
+
+      setCurrentProfile(null);
+      setProfileConfirmed(false);
+      setSettingsStatus({
+        text: "Your profile was deleted.",
+        type: "success",
+      });
+
+      showView("discover");
+    } catch {
+      setSettingsStatus({
+        text: "Your profile could not be deleted remotely.",
+        type: "error",
+      });
+    }
+  };
+
+  const openConfirmation = (
+    title: string,
+    message: string,
+    action: () => Promise<void>,
+  ) => {
+    setDialog({
+      title,
+      message,
+      action,
+    });
+  };
+
+  const progressTotal = pairQueue.length;
+  const progressCurrent =
+    progressTotal > 0
+      ? Math.min(pairIndex + 1, progressTotal)
+      : 0;
+
+  const progressPercent =
+    progressTotal > 0
+      ? (Math.min(pairIndex, progressTotal) / progressTotal) * 100
+      : 0;
+
+  const visibleProfilesCount = availableProfiles.length;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="app-shell grain">
+      <header className="site-header">
+        <div className="header-inner">
+          <button
+            type="button"
+            className="brand-button focus-ring"
+            onClick={() => showView("discover")}
+          >
+            <div className="brand-mark">m</div>
+
+            <span>
+              <span className="wordmark">myFolks</span>
+              <span className="tagline">
+                Find common ground
+              </span>
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className="mobile-menu-toggle focus-ring"
+            onClick={() => setMobileMenuOpen((value) => !value)}
+            aria-expanded={mobileMenuOpen}
+            aria-label={
+              mobileMenuOpen
+                ? "Close navigation"
+                : "Open navigation"
+            }
+          >
+            <Icon
+              name={mobileMenuOpen ? "x" : "menu"}
+              size={22}
+            />
+          </button>
+
+          <nav
+            className={`primary-nav ${
+              mobileMenuOpen ? "is-open" : ""
+            }`}
+          >
+            <NavButton
+              active={view === "discover"}
+              onClick={() => showView("discover")}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Discover
+            </NavButton>
+
+            <NavButton
+              active={view === "friends"}
+              onClick={() => showView("friends")}
             >
-              Learning
-            </a>{" "}
-            center.
+              Friends
+            </NavButton>
+
+            {profileConfirmed && (
+              <NavButton
+                active={view === "messages"}
+                onClick={() => showView("messages")}
+              >
+                Messages
+              </NavButton>
+            )}
+
+            {!profileConfirmed && (
+              <NavButton
+                active={view === "create"}
+                onClick={() => showView("create")}
+              >
+                Create profile
+              </NavButton>
+            )}
+
+            {profileConfirmed && (
+              <>
+                <NavButton
+                  active={view === "profile"}
+                  onClick={() => showView("profile")}
+                >
+                  My profile
+                </NavButton>
+
+                <NavButton
+                  active={view === "settings"}
+                  onClick={() => showView("settings")}
+                >
+                  Settings
+                </NavButton>
+              </>
+            )}
+          </nav>
+        </div>
+      </header>
+
+      <main className="main-content">
+        {view === "discover" && (
+          <DiscoverView
+            profiles={profiles}
+            currentPair={currentPair}
+            discoverState={discoverState}
+            progressCurrent={progressCurrent}
+            progressTotal={progressTotal}
+            progressPercent={progressPercent}
+            positiveSelections={positiveSelections}
+            visibleProfilesCount={visibleProfilesCount}
+            notice={discoverNotice}
+            onChoose={chooseInterest}
+            onSkip={skipPair}
+            onReport={reportProfile}
+            onBlock={(profile) =>
+              openConfirmation(
+                "Block this person?",
+                "They will no longer appear in your discovery session.",
+                () => blockProfile(profile),
+              )
+            }
+            onRetry={loadRemoteProfiles}
+          />
+        )}
+
+        {view === "friends" && (
+          <FriendsView
+            friends={friends}
+            search={friendSearch}
+            onSearch={setFriendSearch}
+            onOpenMessage={(profile) =>
+              openSelectedMessage(profile)
+            }
+          />
+        )}
+
+        {view === "messages" && (
+          <MessagesView
+            friends={friends}
+            activeProfile={activeMessageProfile}
+            mobileOpen={messageOpen}
+            messageText={messageText}
+            messageAsset={messageAsset}
+            messageStatus={messageStatus}
+            messageSending={messageSending}
+            messageCount={messageCount}
+            fileInputRef={messageFileInput}
+            onSelect={(profile) => {
+              setActiveMessageProfile(profile);
+              setMessageOpen(true);
+            }}
+            onBack={() => setMessageOpen(false)}
+            onTextChange={(value) => {
+              setMessageText(value);
+              setMessageCount(value.length);
+            }}
+            onFile={(file) => {
+              if (!file) return;
+
+              const allowed =
+                file.type.startsWith("image/") ||
+                [
+                  "application/pdf",
+                  "text/plain",
+                  "application/msword",
+                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ].includes(file.type);
+
+              if (
+                !allowed ||
+                file.size > MAX_MESSAGE_ASSET_SIZE
+              ) {
+                setMessageStatus({
+                  text: "Choose an image or document up to 10 MB.",
+                  type: "error",
+                });
+                return;
+              }
+
+              setMessageAsset(file);
+              setMessageStatus(null);
+            }}
+            onRemoveAsset={() => {
+              setMessageAsset(null);
+              if (messageFileInput.current) {
+                messageFileInput.current.value = "";
+              }
+            }}
+            onSend={sendMessage}
+          />
+        )}
+
+        {view === "create" && (
+          <CreateProfileView
+            profilePhoto={profilePhoto}
+            profilePhotoUrl={profilePhotoUrl}
+            status={profileStatus}
+            formStatus={formStatus}
+            onPhoto={chooseProfilePhoto}
+            onRemovePhoto={() => {
+              if (profilePhotoUrl) {
+                URL.revokeObjectURL(profilePhotoUrl);
+              }
+
+              setProfilePhoto(null);
+              setProfilePhotoUrl(null);
+              setProfileStatus({
+                text: "Profile photo removed. Choose another photo when ready.",
+                type: "info",
+              });
+            }}
+            onSubmit={createProfile}
+          />
+        )}
+
+        {view === "profile" && (
+          <ProfileView
+            profile={currentProfile}
+            onSignOut={() =>
+              openConfirmation(
+                "Sign out of myFolks?",
+                "You will be signed out on this device.",
+                signOut,
+              )
+            }
+          />
+        )}
+
+        {view === "settings" && (
+          <SettingsView
+            settings={settings}
+            status={settingsStatus}
+            blockedCount={blockedProfiles.size}
+            onChange={setSettings}
+            onSave={saveSettings}
+            onDelete={() =>
+              openConfirmation(
+                "Delete your profile?",
+                "This is a destructive action and cannot be undone.",
+                deleteProfile,
+              )
+            }
+            onSignOut={() =>
+              openConfirmation(
+                "Sign out of myFolks?",
+                "You will be signed out on this device.",
+                signOut,
+              )
+            }
+          />
+        )}
+      </main>
+
+      <footer className="site-footer">
+        © All rights reserved by myFolks
+      </footer>
+
+      {completionProfile && (
+        <div className="modal-backdrop">
+          <div className="completion-modal">
+            <div className="completion-icon">
+              <Icon name="sparkle" size={28} />
+            </div>
+
+            <h2>Perfect match found!</h2>
+
+            <p>
+              You completed every available pair and found a
+              person whose interest resonated with yours. You
+              can take a gentle next step, or simply return to
+              Discover.
+            </p>
+
+            <div className="completion-actions">
+              <button
+                type="button"
+                className="button primary"
+                onClick={sendFriendRequest}
+              >
+                Add to friends
+              </button>
+
+              <button
+                type="button"
+                className="button lavender"
+                onClick={() =>
+                  openSelectedMessage(completionProfile)
+                }
+              >
+                Send a message
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setCompletionProfile(null)}
+            >
+              Return to Discover
+            </button>
+          </div>
+        </div>
+      )}
+
+      {dialog && (
+        <div className="modal-backdrop">
+          <div className="confirm-modal">
+            <h2>{dialog.title}</h2>
+
+            <p>{dialog.message}</p>
+
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="button lavender"
+                onClick={() => setDialog(null)}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="button primary"
+                onClick={async () => {
+                  const action = dialog.action;
+                  setDialog(null);
+
+                  if (action) {
+                    await action();
+                  }
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavButton({
+  children,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`nav-link ${active ? "active" : ""}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+function DiscoverView({
+  profiles,
+  currentPair,
+  discoverState,
+  progressCurrent,
+  progressTotal,
+  progressPercent,
+  positiveSelections,
+  visibleProfilesCount,
+  notice,
+  onChoose,
+  onSkip,
+  onReport,
+  onBlock,
+  onRetry,
+}: {
+  profiles: Profile[];
+  currentPair: Profile[];
+  discoverState: string;
+  progressCurrent: number;
+  progressTotal: number;
+  progressPercent: number;
+  positiveSelections: Profile[];
+  visibleProfilesCount: number;
+  notice: any;
+  onChoose: (index: number) => void;
+  onSkip: () => void;
+  onReport: (profile: Profile) => void;
+  onBlock: (profile: Profile) => void;
+  onRetry: () => void;
+}) {
+  const loading = discoverState === "loading";
+  const empty = discoverState === "empty";
+  const error = discoverState === "error";
+  const insufficient = profiles.length > 0 && visibleProfilesCount < 2;
+
+  return (
+    <section className="view-panel">
+      <div className="section-heading-row">
+        <div>
+          <Eyebrow>Shared-interest discovery</Eyebrow>
+
+          <h1>Which interest feels familiar?</h1>
+
+          <p>
+            Choose the featured interest you connect with most.
+            It&apos;s about finding common ground, never judging
+            people.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+
+        <div className="progress-card">
+          <div className="progress-header">
+            <span>Your session</span>
+            <span>
+              {progressTotal
+                ? `Pair ${progressCurrent} of ${progressTotal}`
+                : "No pairs"}
+            </span>
+          </div>
+
+          <div className="progress-track">
+            <div
+              className="progress-fill"
+              style={{ width: `${progressPercent}%` }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
-      </main>
+      </div>
+
+      {loading && (
+        <div className="state-card">
+          <Icon name="loader" size={32} />
+          <p>Loading profiles to discover…</p>
+        </div>
+      )}
+
+      {empty && (
+        <div className="state-card">
+          <p>No profiles to discover yet.</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="state-card error-state">
+          <p>
+            Profiles could not be loaded right now. Please try
+            again.
+          </p>
+
+          <button
+            type="button"
+            className="button primary"
+            onClick={onRetry}
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {notice && (
+        <StatusMessage
+          text={notice.text}
+          type={notice.type}
+        />
+      )}
+
+      {insufficient && (
+        <div className="insufficient-card">
+          <Icon name="users" size={40} />
+
+          <h2>More profiles are needed</h2>
+
+          <p>
+            There are not enough available profiles to create a
+            discovery pair right now. Check back after more
+            people choose to be visible in Discover.
+          </p>
+        </div>
+      )}
+
+      {!loading &&
+        !empty &&
+        !error &&
+        !insufficient &&
+        currentPair.length === 2 && (
+          <>
+            <div className="pair-grid">
+              <ProfileCard
+                profile={currentPair[0]}
+                variant="coral"
+                onChoose={() => onChoose(0)}
+                onReport={() => onReport(currentPair[0])}
+                onBlock={() => onBlock(currentPair[0])}
+              />
+
+              <div className="or-badge">OR</div>
+
+              <ProfileCard
+                profile={currentPair[1]}
+                variant="lavender"
+                onChoose={() => onChoose(1)}
+                onReport={() => onReport(currentPair[1])}
+                onBlock={() => onBlock(currentPair[1])}
+              />
+            </div>
+
+            <div className="discovery-controls">
+              <button
+                type="button"
+                className="button lavender"
+                onClick={onSkip}
+              >
+                Skip this pair
+              </button>
+
+              <span className="selection-count">
+                {positiveSelections.length} selections
+              </span>
+            </div>
+          </>
+        )}
+    </section>
+  );
+}
+
+function ProfileCard({
+  profile,
+  variant,
+  onChoose,
+  onReport,
+  onBlock,
+}: {
+  profile: Profile;
+  variant: "coral" | "lavender";
+  onChoose: () => void;
+  onReport: () => void;
+  onBlock: () => void;
+}) {
+  return (
+    <article className="profile-card">
+      <div className="profile-header">
+        <Avatar profile={profile} />
+
+        <div className="profile-heading">
+          <span>A myFolks profile</span>
+          <h2>{profile.display_name}</h2>
+        </div>
+      </div>
+
+      <div className={`interest-box ${variant}`}>
+        <span>Featured interest</span>
+        <strong>{profile.featured_interest}</strong>
+      </div>
+
+      {profile.bio && (
+        <p className="profile-bio">{profile.bio}</p>
+      )}
+
+      <button
+        type="button"
+        className="button primary full-width"
+        onClick={onChoose}
+      >
+        I relate to this
+      </button>
+
+      <div className="profile-actions">
+        <button type="button" onClick={onReport}>
+          Report
+        </button>
+
+        <button type="button" onClick={onBlock}>
+          Block
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function FriendsView({
+  friends,
+  search,
+  onSearch,
+  onOpenMessage,
+}: {
+  friends: Profile[];
+  search: string;
+  onSearch: (value: string) => void;
+  onOpenMessage: (profile: Profile) => void;
+}) {
+  return (
+    <section className="view-panel">
+      <Eyebrow>Your connections</Eyebrow>
+
+      <h1>Friends</h1>
+
+      <p className="section-copy">
+        Keep your connections intentional. Friendship begins
+        only when both people choose it.
+      </p>
+
+      <div className="search-field">
+        <label htmlFor="friend-search">
+          Search friends
+        </label>
+
+        <div className="search-input-wrap">
+          <Icon name="search" size={20} />
+
+          <input
+            id="friend-search"
+            type="search"
+            value={search}
+            onChange={(event) =>
+              onSearch(event.target.value)
+            }
+            placeholder="Search friends"
+          />
+
+          {search && (
+            <button
+              type="button"
+              onClick={() => onSearch("")}
+              aria-label="Clear friend search"
+            >
+              <Icon name="x" size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {!friends.length ? (
+        <div className="empty-banner">
+          <Icon name="heart" size={30} />
+
+          <p>
+            {search
+              ? "No friends match that name."
+              : "No accepted friends yet. A connection begins only when both people choose it."}
+          </p>
+        </div>
+      ) : (
+        <div className="friends-grid">
+          {friends.map((friend) => (
+            <article
+              className="friend-card"
+              key={friend.profile_id}
+            >
+              <Avatar profile={friend} />
+
+              <div>
+                <h2>{friend.display_name}</h2>
+                <p>{friend.featured_interest}</p>
+              </div>
+
+              <button
+                type="button"
+                className="button lavender"
+                onClick={() => onOpenMessage(friend)}
+              >
+                Message
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MessagesView({
+  friends,
+  activeProfile,
+  mobileOpen,
+  messageText,
+  messageAsset,
+  messageStatus,
+  messageSending,
+  messageCount,
+  fileInputRef,
+  onSelect,
+  onBack,
+  onTextChange,
+  onFile,
+  onRemoveAsset,
+  onSend,
+}: {
+  friends: Profile[];
+  activeProfile: Profile | null;
+  mobileOpen: boolean;
+  messageText: string;
+  messageAsset: File | null;
+  messageStatus: any;
+  messageSending: boolean;
+  messageCount: number;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onSelect: (profile: Profile) => void;
+  onBack: () => void;
+  onTextChange: (value: string) => void;
+  onFile: (file?: File) => void;
+  onRemoveAsset: () => void;
+  onSend: (event: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <section className="view-panel">
+      <Eyebrow>Private conversations</Eyebrow>
+
+      <h1>Messages</h1>
+
+      <p className="section-copy">
+        Messages are available only after friendship is accepted
+        or a person explicitly allows message requests.
+      </p>
+
+      <div
+        className={`messages-shell ${
+          mobileOpen ? "chat-open" : ""
+        }`}
+      >
+        <aside className="conversation-list-pane">
+          <div className="conversation-heading">
+            <h2>Connections</h2>
+            <span>{friends.length}</span>
+          </div>
+
+          <div className="conversation-list">
+            {!friends.length ? (
+              <div className="conversation-empty">
+                <Icon name="handshake" size={32} />
+
+                <p>
+                  Your accepted connections will appear here.
+                  Choose common ground first, then keep the
+                  conversation kind.
+                </p>
+              </div>
+            ) : (
+              friends.map((friend) => (
+                <button
+                  type="button"
+                  className={`conversation-item ${
+                    activeProfile?.profile_id ===
+                    friend.profile_id
+                      ? "selected"
+                      : ""
+                  }`}
+                  key={friend.profile_id}
+                  onClick={() => onSelect(friend)}
+                >
+                  <Avatar profile={friend} />
+
+                  <span>
+                    <strong>{friend.display_name}</strong>
+                    <small>
+                      {friend.featured_interest}
+                    </small>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </aside>
+
+        {!activeProfile ? (
+          <div className="messages-no-selection">
+            <Icon name="messages" size={42} />
+
+            <h2>Choose a conversation</h2>
+
+            <p>
+              Select an accepted connection to see your shared
+              conversation here.
+            </p>
+          </div>
+        ) : (
+          <section className="conversation-pane">
+            <header className="conversation-header">
+              <button
+                type="button"
+                className="mobile-back-button"
+                onClick={onBack}
+                aria-label="Back to conversations"
+              >
+                <Icon name="arrowLeft" size={20} />
+              </button>
+
+              <Avatar profile={activeProfile} />
+
+              <div>
+                <h2>{activeProfile.display_name}</h2>
+                <p>Presence unavailable</p>
+              </div>
+
+              <button
+                type="button"
+                className="conversation-more"
+                aria-label="Conversation options"
+              >
+                <Icon name="more" size={22} />
+              </button>
+            </header>
+
+            <div className="message-thread">
+              <div className="message-empty">
+                <Icon name="sparkle" size={32} />
+
+                <p>
+                  Start with what you both enjoy:{" "}
+                  <strong>
+                    {activeProfile.featured_interest}
+                  </strong>
+                  .
+                </p>
+              </div>
+            </div>
+
+            <div className="message-composer">
+              <form onSubmit={onSend}>
+                <div className="composer-row">
+                  <textarea
+                    value={messageText}
+                    onChange={(event) =>
+                      onTextChange(event.target.value)
+                    }
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "Enter" &&
+                        !event.shiftKey
+                      ) {
+                        event.preventDefault();
+                        event.currentTarget.form?.requestSubmit();
+                      }
+                    }}
+                    rows={2}
+                    maxLength={280}
+                    placeholder="Write something kind..."
+                  />
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    hidden
+                    accept="image/*,.pdf,.txt,.doc,.docx"
+                    onChange={(event) =>
+                      onFile(event.target.files?.[0])
+                    }
+                  />
+
+                  <button
+                    type="button"
+                    className="button outline"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Attach
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="button primary"
+                    disabled={messageSending}
+                  >
+                    {messageSending
+                      ? "Sending..."
+                      : "Send message"}
+                  </button>
+                </div>
+
+                {messageAsset && (
+                  <div className="attachment-preview">
+                    <span>{messageAsset.name}</span>
+
+                    <button
+                      type="button"
+                      onClick={onRemoveAsset}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+
+                <div className="message-meta">
+                  <span>{messageCount} / 280</span>
+                  <span>
+                    Enter to send · Shift+Enter for a new line
+                  </span>
+                </div>
+
+                {messageStatus && (
+                  <StatusMessage
+                    text={messageStatus.text}
+                    type={messageStatus.type}
+                  />
+                )}
+              </form>
+            </div>
+          </section>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CreateProfileView({
+  profilePhoto,
+  profilePhotoUrl,
+  status,
+  formStatus,
+  onPhoto,
+  onRemovePhoto,
+  onSubmit,
+}: {
+  profilePhoto: File | null;
+  profilePhotoUrl: string | null;
+  status: any;
+  formStatus: any;
+  onPhoto: (file?: File) => void;
+  onRemovePhoto: () => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <section className="view-panel">
+      <Eyebrow>Consent-first profile</Eyebrow>
+
+      <h1>Create your myFolks profile</h1>
+
+      <p className="section-copy">
+        Keep it simple, kind, and recognisably you. You choose
+        what becomes public and can unpublish or delete your
+        profile at any time.
+      </p>
+
+      <form
+        className="profile-form"
+        onSubmit={onSubmit}
+      >
+        <div className="form-grid">
+          <div className="field full">
+            <label htmlFor="profile-name">
+              Display name
+            </label>
+
+            <input
+              id="profile-name"
+              required
+              maxLength={80}
+              placeholder="Your display name"
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="profile-interest">
+              Featured interest
+            </label>
+
+            <input
+              id="profile-interest"
+              required
+              maxLength={120}
+              placeholder="Something you enjoy"
+            />
+          </div>
+
+          <div className="photo-section full">
+            <div className="photo-heading">
+              <div className="photo-icon">
+                <Icon name="plusImage" size={22} />
+              </div>
+
+              <div>
+                <h2>Add profile photos</h2>
+
+                <p>
+                  Choose one clear profile photo from your
+                  phone, tablet, laptop, or desktop. JPG, PNG,
+                  or WebP up to 10 MB.
+                </p>
+              </div>
+            </div>
+
+            <div
+              className="photo-dropzone"
+              onClick={() => inputRef.current?.click()}
+              onDragOver={(event) =>
+                event.preventDefault()
+              }
+              onDrop={(event) => {
+                event.preventDefault();
+                onPhoto(event.dataTransfer.files[0]);
+              }}
+            >
+              <input
+                ref={inputRef}
+                type="file"
+                hidden
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) =>
+                  onPhoto(event.target.files?.[0])
+                }
+              />
+
+              {!profilePhotoUrl ? (
+                <>
+                  <div className="photo-placeholder">
+                    <Icon name="user" size={48} />
+                  </div>
+
+                  <p>Add a profile photo</p>
+
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      inputRef.current?.click();
+                    }}
+                  >
+                    Upload photo
+                  </button>
+                </>
+              ) : (
+                <>
+                  <img
+                    src={profilePhotoUrl}
+                    alt="Selected profile photo"
+                    className="profile-photo-preview"
+                  />
+
+                  <div className="photo-actions">
+                    <button
+                      type="button"
+                      className="button outline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        inputRef.current?.click();
+                      }}
+                    >
+                      Replace photo
+                    </button>
+
+                    <button
+                      type="button"
+                      className="button danger-text"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onRemovePhoto();
+                      }}
+                    >
+                      Remove photo
+                    </button>
+                  </div>
+                </>
+              )}
+
+              <span>
+                {profilePhoto
+                  ? profilePhoto.name
+                  : "Choose one photo from your device, or drag it here."}
+              </span>
+            </div>
+
+            {status && (
+              <StatusMessage
+                text={status.text}
+                type={status.type}
+              />
+            )}
+          </div>
+
+          <div className="field full">
+            <label htmlFor="profile-bio">
+              Short bio (optional)
+            </label>
+
+            <textarea
+              id="profile-bio"
+              rows={4}
+              maxLength={280}
+            />
+          </div>
+        </div>
+
+        <label className="consent-box">
+          <input type="checkbox" required />
+          <span>
+            I consent to showing this information publicly in
+            Discover.
+          </span>
+        </label>
+
+        <div className="privacy-note">
+          Only the information you choose is shown publicly.
+          You can change visibility or delete your profile in
+          Settings.
+        </div>
+
+        {formStatus && (
+          <StatusMessage
+            text={formStatus.text}
+            type={formStatus.type}
+          />
+        )}
+
+        <button
+          type="submit"
+          className="button primary"
+        >
+          Create profile
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function ProfileView({
+  profile,
+  onSignOut,
+}: {
+  profile: Profile | null;
+  onSignOut: () => void;
+}) {
+  return (
+    <section className="view-panel">
+      <Eyebrow>Your controls</Eyebrow>
+
+      <h1>My profile</h1>
+
+      <p className="section-copy">
+        Review exactly what you share, update your featured
+        interest, or take your profile out of Discover whenever
+        you want.
+      </p>
+
+      {profile && (
+        <div className="current-profile-card">
+          <Avatar profile={profile} large />
+
+          <h2>{profile.display_name}</h2>
+
+          <strong>{profile.featured_interest}</strong>
+
+          <p>{profile.bio || "No bio added yet."}</p>
+
+          <div className="visibility-pill">
+            Visibility: {profile.visibility || "published"} ·
+            Profile active
+          </div>
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="button outline"
+        onClick={onSignOut}
+      >
+        Sign out
+      </button>
+    </section>
+  );
+}
+
+function SettingsView({
+  settings,
+  status,
+  blockedCount,
+  onChange,
+  onSave,
+  onDelete,
+  onSignOut,
+}: {
+  settings: any;
+  status: any;
+  blockedCount: number;
+  onChange: (settings: any) => void;
+  onSave: (event: React.FormEvent<HTMLFormElement>) => void;
+  onDelete: () => void;
+  onSignOut: () => void;
+}) {
+  return (
+    <section className="view-panel">
+      <div className="settings-heading">
+        <Eyebrow>Your controls</Eyebrow>
+
+        <h1>Settings</h1>
+
+        <p className="section-copy">
+          Choose how you appear, who can contact you, and how
+          myFolks communicates with you.
+        </p>
+      </div>
+
+      <form
+        className="settings-form"
+        onSubmit={onSave}
+      >
+        <SettingsSection title="Profile visibility">
+          <RadioGrid
+            name="visibility"
+            value={settings.visibility}
+            options={[
+              ["published", "Published — show my profile in Discover"],
+              [
+                "unpublished",
+                "Unpublished — hide my profile from Discover",
+              ],
+            ]}
+            onChange={(value) =>
+              onChange({
+                ...settings,
+                visibility: value,
+              })
+            }
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Last seen visibility">
+          <RadioGrid
+            name="lastSeenVisibility"
+            value={settings.lastSeenVisibility}
+            options={[
+              ["everyone", "Everyone"],
+              ["connections", "Connections"],
+              ["nobody", "Nobody"],
+            ]}
+            onChange={(value) =>
+              onChange({
+                ...settings,
+                lastSeenVisibility: value,
+              })
+            }
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Featured interest display">
+          <ToggleRow
+            label="Show my featured interest in Discover"
+            checked={settings.interestDisplay}
+            onChange={(checked) =>
+              onChange({
+                ...settings,
+                interestDisplay: checked,
+              })
+            }
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Message permissions">
+          <RadioGrid
+            name="messagePermission"
+            value={settings.messagePermission}
+            options={[
+              ["friends_only", "Friends only"],
+              ["requests", "Allow message requests"],
+            ]}
+            onChange={(value) =>
+              onChange({
+                ...settings,
+                messagePermission: value,
+              })
+            }
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Notifications">
+          <div className="toggle-stack">
+            <ToggleRow
+              label="Friend requests"
+              checked={settings.friendNotifications}
+              onChange={(checked) =>
+                onChange({
+                  ...settings,
+                  friendNotifications: checked,
+                })
+              }
+            />
+
+            <ToggleRow
+              label="Messages"
+              checked={settings.messageNotifications}
+              onChange={(checked) =>
+                onChange({
+                  ...settings,
+                  messageNotifications: checked,
+                })
+              }
+            />
+          </div>
+        </SettingsSection>
+
+        <button
+          type="submit"
+          className="button primary"
+        >
+          Save settings
+        </button>
+
+        {status && (
+          <StatusMessage
+            text={status.text}
+            type={status.type}
+          />
+        )}
+      </form>
+
+      <div className="safety-card">
+        <h2>Privacy and safety</h2>
+
+        <div className="safety-grid">
+          <button
+            type="button"
+            className="safety-button lavender-bg"
+          >
+            Blocked profiles ({blockedCount})
+          </button>
+
+          <button
+            type="button"
+            className="safety-button danger-bg"
+          >
+            Report an issue
+          </button>
+
+          <button
+            type="button"
+            className="safety-button danger-outline"
+            onClick={onDelete}
+          >
+            Delete profile
+          </button>
+
+          <button
+            type="button"
+            className="safety-button outline-bg"
+            onClick={onSignOut}
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SettingsSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="settings-section">
+      <h2>{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function RadioGrid({
+  name,
+  value,
+  options,
+  onChange,
+}: {
+  name: string;
+  value: string;
+  options: [string, string][];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="radio-grid">
+      {options.map(([optionValue, label]) => (
+        <label key={optionValue}>
+          <input
+            type="radio"
+            name={name}
+            value={optionValue}
+            checked={value === optionValue}
+            onChange={() => onChange(optionValue)}
+          />
+
+          <span>{label}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="toggle-row">
+      <span>{label}</span>
+
+      <label className="switch">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) =>
+            onChange(event.target.checked)
+          }
+        />
+
+        <span />
+      </label>
+    </div>
+  );
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <p className="eyebrow">{children}</p>;
+}
+
+function StatusMessage({
+  text,
+  type,
+}: {
+  text: string;
+  type: "info" | "success" | "error";
+}) {
+  return (
+    <div className={`status-message ${type}`}>
+      {text}
     </div>
   );
 }
