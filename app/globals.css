@@ -20,19 +20,26 @@
     0 8px 26px rgba(55, 40, 31, 0.08);
 }
 
+/* =========================================================
+   GLOBAL
+   ========================================================= */
+
 * {
   box-sizing: border-box;
 }
 
 html {
   background: var(--paper);
+  color-scheme: light;
   scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
+
   color: var(--ink);
   background: var(--paper);
+
   font-family:
     "Work Sans",
     Arial,
@@ -56,7 +63,9 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
+
   overflow-x: hidden;
+
   background-color: var(--paper);
 }
 
@@ -66,12 +75,18 @@ button:disabled {
       rgba(37, 33, 31, 0.052) 1px,
       transparent 1px
     );
+
   background-size: 17px 17px;
 }
+
+/* =========================================================
+   HEADER
+   ========================================================= */
 
 .site-header {
   position: sticky;
   top: 0;
+
   z-index: 20;
 
   border-bottom: 1px solid var(--line);
@@ -84,9 +99,10 @@ button:disabled {
 
 .header-inner {
   width: min(100% - 2.5rem, 72rem);
-  margin: 0 auto;
 
   min-height: 76px;
+
+  margin: 0 auto;
 
   display: flex;
   align-items: center;
@@ -98,12 +114,15 @@ button:disabled {
 .brand-button {
   display: flex;
   align-items: center;
+
   gap: 0.75rem;
 
   border: 0;
+
   background: transparent;
 
   padding: 0.35rem;
+
   border-radius: 0.9rem;
 
   text-align: left;
@@ -188,6 +207,7 @@ button:disabled {
 
 .nav-link.active {
   color: var(--ink);
+
   border-bottom-color: var(--coral);
 }
 
@@ -200,14 +220,21 @@ button:disabled {
   place-items: center;
 
   border: 1px solid var(--line);
+
   border-radius: 0.85rem;
 
   background: transparent;
+
   color: var(--ink);
 }
 
+/* =========================================================
+   MAIN
+   ========================================================= */
+
 .main-content {
   width: min(100% - 2.5rem, 72rem);
+
   margin: 0 auto;
 
   padding-top: 3rem;
@@ -224,12 +251,16 @@ button:disabled {
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(9px);
+
+    transform:
+      translateY(9px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+
+    transform:
+      translateY(0);
   }
 }
 
@@ -243,6 +274,7 @@ button:disabled {
   font-weight: 700;
 
   letter-spacing: 0.14em;
+
   text-transform: uppercase;
 }
 
@@ -288,13 +320,19 @@ button:disabled {
   line-height: 1.7;
 }
 
+/* =========================================================
+   PROGRESS
+   ========================================================= */
+
 .progress-card {
   width: 210px;
+
   flex: 0 0 auto;
 
   padding: 0.9rem 1rem;
 
   border: 1px solid var(--line);
+
   border-radius: 1rem;
 
   background: white;
@@ -306,6 +344,7 @@ button:disabled {
 .progress-header {
   display: flex;
   justify-content: space-between;
+
   gap: 1rem;
 
   color: var(--muted);
@@ -314,6 +353,7 @@ button:disabled {
   font-weight: 700;
 
   letter-spacing: 0.08em;
+
   text-transform: uppercase;
 }
 
@@ -336,8 +376,13 @@ button:disabled {
 
   background: var(--coral);
 
-  transition: width 0.45s cubic-bezier(0.2, 0.75, 0.25, 1);
+  transition:
+    width 0.45s cubic-bezier(0.2, 0.75, 0.25, 1);
 }
+
+/* =========================================================
+   STATE
+   ========================================================= */
 
 .state-card {
   display: grid;
@@ -346,9 +391,11 @@ button:disabled {
   min-height: 160px;
 
   margin-bottom: 1.5rem;
+
   padding: 2rem;
 
   border: 1px solid var(--line);
+
   border-radius: 1.25rem;
 
   background: white;
@@ -361,7 +408,8 @@ button:disabled {
 .state-card svg {
   color: var(--coral);
 
-  animation: spin 1s linear infinite;
+  animation:
+    spin 1s linear infinite;
 }
 
 .state-card p {
@@ -372,6 +420,7 @@ button:disabled {
 
 .state-card.error-state {
   color: var(--danger);
+
   background: var(--danger-bg);
 }
 
@@ -385,6 +434,7 @@ button:disabled {
   padding: 0.8rem 1rem;
 
   border: 1px solid transparent;
+
   border-radius: 0.8rem;
 
   font-size: 0.9rem;
@@ -415,6 +465,10 @@ button:disabled {
   color: var(--danger);
 }
 
+/* =========================================================
+   DISCOVERY
+   ========================================================= */
+
 .pair-grid {
   display: grid;
 
@@ -434,6 +488,7 @@ button:disabled {
   padding: 1.75rem;
 
   border: 1px solid var(--line);
+
   border-radius: 2rem;
 
   background: white;
@@ -446,7 +501,8 @@ button:disabled {
 }
 
 .profile-card:hover {
-  transform: translateY(-3px);
+  transform:
+    translateY(-3px);
 
   box-shadow:
     0 22px 42px rgba(53, 37, 27, 0.12);
@@ -471,6 +527,7 @@ button:disabled {
   overflow: hidden;
 
   border-radius: 1.45rem;
+
   border: 1px solid rgba(37, 33, 31, 0.08);
 
   background:
@@ -518,6 +575,7 @@ button:disabled {
   font-weight: 700;
 
   letter-spacing: 0.12em;
+
   text-transform: uppercase;
 }
 
@@ -560,6 +618,7 @@ button:disabled {
   font-weight: 700;
 
   letter-spacing: 0.12em;
+
   text-transform: uppercase;
 }
 
@@ -590,6 +649,7 @@ button:disabled {
   place-items: center;
 
   border: 1px solid var(--line);
+
   border-radius: 999px;
 
   background: var(--paper);
@@ -599,6 +659,10 @@ button:disabled {
   font-size: 0.72rem;
   font-weight: 800;
 }
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
 
 .button {
   display: inline-flex;
@@ -610,6 +674,7 @@ button:disabled {
   padding: 0.75rem 1.25rem;
 
   border: 1px solid transparent;
+
   border-radius: 0.8rem;
 
   font-weight: 700;
@@ -621,7 +686,8 @@ button:disabled {
 }
 
 .button:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform:
+    translateY(-1px);
 }
 
 .button:disabled {
@@ -630,6 +696,7 @@ button:disabled {
 
 .button.primary {
   color: white;
+
   background: var(--coral);
 
   box-shadow:
@@ -638,6 +705,7 @@ button:disabled {
 
 .button.lavender {
   color: var(--ink);
+
   background: var(--lavender);
 }
 
@@ -645,11 +713,13 @@ button:disabled {
   border-color: var(--line);
 
   color: var(--ink);
+
   background: white;
 }
 
 .button.full-width {
   width: 100%;
+
   margin-top: 1.5rem;
 }
 
@@ -669,6 +739,7 @@ button:disabled {
   padding: 0.4rem;
 
   color: var(--muted);
+
   background: transparent;
 
   font-size: 0.9rem;
@@ -701,10 +772,15 @@ button:disabled {
     0 4px 14px rgba(55, 40, 31, 0.06);
 }
 
+/* =========================================================
+   EMPTY / SEARCH
+   ========================================================= */
+
 .insufficient-card {
   padding: 3rem;
 
   border: 1px dashed #d7caec;
+
   border-radius: 2rem;
 
   background: white;
@@ -755,6 +831,7 @@ button:disabled {
 
 .search-input-wrap > svg {
   position: absolute;
+
   left: 1rem;
 
   color: var(--muted);
@@ -772,6 +849,7 @@ button:disabled {
     3rem;
 
   border: 1px solid var(--line);
+
   border-radius: 0.8rem;
 
   background: white;
@@ -786,6 +864,7 @@ button:disabled {
 
 .search-input-wrap button {
   position: absolute;
+
   right: 0.45rem;
 
   width: 36px;
@@ -795,6 +874,7 @@ button:disabled {
   place-items: center;
 
   border: 0;
+
   border-radius: 0.6rem;
 
   background: transparent;
@@ -815,12 +895,17 @@ button:disabled {
   background: #f8f4ff;
 
   color: var(--purple-text);
+
   font-weight: 600;
 }
 
 .empty-banner p {
   margin: 0;
 }
+
+/* =========================================================
+   FRIENDS
+   ========================================================= */
 
 .friends-grid {
   display: grid;
@@ -836,7 +921,10 @@ button:disabled {
 .friend-card {
   display: grid;
 
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns:
+    auto
+    minmax(0, 1fr)
+    auto;
 
   align-items: center;
 
@@ -845,6 +933,7 @@ button:disabled {
   padding: 1rem;
 
   border: 1px solid var(--line);
+
   border-radius: 1.5rem;
 
   background: white;
@@ -864,6 +953,10 @@ button:disabled {
   color: var(--muted);
 }
 
+/* =========================================================
+   MESSAGES
+   ========================================================= */
+
 .messages-shell {
   display: grid;
 
@@ -878,6 +971,7 @@ button:disabled {
   overflow: hidden;
 
   border: 1px solid var(--line);
+
   border-radius: 2rem;
 
   background: white;
@@ -935,6 +1029,7 @@ button:disabled {
   padding: 0.75rem;
 
   border: 0;
+
   border-radius: 1rem;
 
   background: transparent;
@@ -967,6 +1062,7 @@ button:disabled {
   overflow: hidden;
 
   text-overflow: ellipsis;
+
   white-space: nowrap;
 }
 
@@ -978,6 +1074,7 @@ button:disabled {
   color: var(--muted);
 
   text-overflow: ellipsis;
+
   white-space: nowrap;
 }
 
@@ -1001,6 +1098,7 @@ button:disabled {
 
 .messages-no-selection {
   display: grid;
+
   place-content: center;
 
   padding: 2rem;
@@ -1032,6 +1130,7 @@ button:disabled {
   min-width: 0;
 
   display: flex;
+
   flex-direction: column;
 }
 
@@ -1081,6 +1180,7 @@ button:disabled {
   place-items: center;
 
   border: 0;
+
   border-radius: 0.6rem;
 
   background: transparent;
@@ -1152,6 +1252,7 @@ button:disabled {
 
 .composer-row textarea {
   min-width: 0;
+
   flex: 1;
 
   resize: vertical;
@@ -1159,6 +1260,7 @@ button:disabled {
   padding: 0.75rem 1rem;
 
   border: 1px solid var(--line);
+
   border-radius: 1rem;
 
   background: white;
@@ -1183,6 +1285,7 @@ button:disabled {
   padding: 0.65rem 0.8rem;
 
   border: 1px solid var(--line);
+
   border-radius: 0.8rem;
 
   background: white;
@@ -1192,6 +1295,7 @@ button:disabled {
   overflow: hidden;
 
   text-overflow: ellipsis;
+
   white-space: nowrap;
 
   font-size: 0.85rem;
@@ -1222,6 +1326,10 @@ button:disabled {
   font-size: 0.72rem;
 }
 
+/* =========================================================
+   FORMS
+   ========================================================= */
+
 .profile-form,
 .settings-form,
 .safety-card,
@@ -1233,6 +1341,7 @@ button:disabled {
   padding: 1.75rem;
 
   border: 1px solid var(--line);
+
   border-radius: 2rem;
 
   background: white;
@@ -1272,6 +1381,7 @@ button:disabled {
   padding: 0.75rem 1rem;
 
   border: 1px solid var(--line);
+
   border-radius: 0.8rem;
 
   background: white;
@@ -1284,6 +1394,508 @@ button:disabled {
   box-shadow:
     0 0 0 4px var(--lavender);
 }
+
+/* =========================================================
+   FEATURED INTEREST PICKER
+   ========================================================= */
+
+.interest-field {
+  position: relative;
+}
+
+.interest-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 1rem;
+}
+
+.interest-label-hint {
+  color: var(--muted);
+
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.interest-picker {
+  width: 100%;
+
+  margin-top: 0.15rem;
+}
+
+.interest-bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: 0.65rem;
+
+  margin-top: 0.75rem;
+}
+
+/* =========================================================
+   INTEREST BUBBLES
+   ========================================================= */
+
+.interest-bubble {
+  position: relative;
+
+  min-height: 42px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0.6rem 0.95rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 999px;
+
+  background: var(--mist);
+
+  color: var(--ink);
+
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 4px 12px rgba(55, 40, 31, 0.045);
+
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.interest-bubble:hover {
+  transform:
+    translateY(-2px)
+    scale(1.02);
+
+  border-color: var(--purple);
+
+  background: var(--lavender);
+
+  box-shadow:
+    0 8px 20px rgba(121, 100, 158, 0.14);
+}
+
+.interest-bubble:active {
+  transform:
+    scale(0.95);
+}
+
+.interest-bubble:focus-visible {
+  outline: none;
+
+  box-shadow:
+    0 0 0 4px var(--lavender);
+}
+
+/* =========================================================
+   SELECTED INTEREST
+   ========================================================= */
+
+.interest-bubble.is-selected {
+  border-color: var(--coral);
+
+  background: var(--coral);
+
+  color: white;
+
+  box-shadow:
+    0 9px 22px rgba(232, 93, 74, 0.2);
+}
+
+.interest-bubble.is-selected:hover {
+  border-color: var(--coral);
+
+  background: var(--coral);
+
+  color: white;
+
+  box-shadow:
+    0 10px 24px rgba(232, 93, 74, 0.25);
+}
+
+/* =========================================================
+   SELECTED CHECKMARK
+   ========================================================= */
+
+.interest-bubble-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 16px;
+  height: 16px;
+
+  margin-left: 0.45rem;
+
+  font-size: 0.72rem;
+  font-weight: 900;
+
+  line-height: 1;
+
+  animation:
+    interest-check-pop
+    220ms
+    cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+@keyframes interest-check-pop {
+  0% {
+    opacity: 0;
+
+    transform:
+      scale(0.4);
+  }
+
+  70% {
+    opacity: 1;
+
+    transform:
+      scale(1.2);
+  }
+
+  100% {
+    opacity: 1;
+
+    transform:
+      scale(1);
+  }
+}
+
+/* =========================================================
+   NEWLY REVEALED INTERESTS
+   ========================================================= */
+
+.interest-bubble-reveal {
+  opacity: 0;
+
+  animation:
+    interest-bubble-pop
+    520ms
+    cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+
+  animation-delay:
+    var(--interest-delay, 0ms);
+}
+
+@keyframes interest-bubble-pop {
+  0% {
+    opacity: 0;
+
+    transform:
+      translateY(18px)
+      scale(0.55)
+      rotate(-6deg);
+  }
+
+  55% {
+    opacity: 1;
+
+    transform:
+      translateY(-5px)
+      scale(1.08)
+      rotate(2deg);
+  }
+
+  78% {
+    transform:
+      translateY(2px)
+      scale(0.98)
+      rotate(-1deg);
+  }
+
+  100% {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1)
+      rotate(0deg);
+  }
+}
+
+/* =========================================================
+   MORE INTERESTS BUTTON
+   ========================================================= */
+
+.interest-more-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 0.35rem;
+
+  margin-top: 0.9rem;
+
+  min-height: 38px;
+
+  padding: 0.45rem 0.75rem;
+
+  border: 1px solid transparent;
+
+  border-radius: 999px;
+
+  background: transparent;
+
+  color: var(--purple);
+
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease;
+}
+
+.interest-more-button:hover {
+  transform:
+    translateY(-1px);
+
+  border-color: var(--line);
+
+  background: var(--mist);
+
+  color: var(--ink);
+}
+
+.interest-more-button:active {
+  transform:
+    scale(0.96);
+}
+
+.interest-more-button:focus-visible {
+  outline: none;
+
+  box-shadow:
+    0 0 0 4px var(--lavender);
+}
+
+/* =========================================================
+   CUSTOM INTEREST INPUT
+   ========================================================= */
+
+.interest-custom-input {
+  margin-top: 1.1rem;
+}
+
+.interest-custom-input input {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding:
+    0.78rem
+    1rem;
+
+  border:
+    1px solid
+    var(--line);
+
+  border-radius:
+    0.8rem;
+
+  background:
+    var(--paper);
+
+  color:
+    var(--ink);
+
+  font-family: inherit;
+  font-size: 0.9rem;
+
+  outline: none;
+
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.interest-custom-input input::placeholder {
+  color: var(--muted);
+
+  opacity: 0.75;
+}
+
+.interest-custom-input input:focus {
+  border-color:
+    var(--purple);
+
+  box-shadow:
+    0 0 0 4px
+    rgba(121, 100, 158, 0.12);
+}
+
+.interest-helper {
+  margin:
+    0.5rem
+    0
+    0;
+
+  color:
+    var(--muted);
+
+  font-size:
+    0.78rem;
+
+  line-height:
+    1.5;
+}
+
+/* =========================================================
+   PROFILE IDENTITY / SIMPLE PHOTO
+   ========================================================= */
+
+.profile-identity-section {
+  grid-column: 1 / -1;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0.25rem 0 0.5rem;
+
+  text-align: center;
+}
+
+.profile-photo-button {
+  width: 84px;
+  height: 84px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 auto;
+
+  padding: 0;
+
+  border: 0;
+
+  border-radius: 50%;
+
+  overflow: hidden;
+
+  background: transparent;
+
+  cursor: pointer;
+
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.profile-photo-button:hover {
+  transform:
+    translateY(-2px);
+
+  box-shadow:
+    0 10px 24px rgba(55, 40, 31, 0.12);
+}
+
+.profile-photo-button:active {
+  transform:
+    scale(0.96);
+}
+
+.profile-photo-button:focus-visible {
+  outline: none;
+
+  box-shadow:
+    0 0 0 4px var(--lavender);
+}
+
+.profile-photo-circle {
+  width: 84px;
+  height: 84px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+
+  overflow: hidden;
+
+  object-fit: cover;
+}
+
+.profile-photo-placeholder {
+  width: 84px;
+  height: 84px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 50%;
+
+  background:
+    linear-gradient(
+      135deg,
+      #f8d5ca,
+      #e8ddfb
+    );
+
+  color: var(--ink);
+}
+
+.profile-photo-hint {
+  margin: 0.55rem 0 0;
+
+  color: var(--muted);
+
+  font-size: 0.78rem;
+}
+
+.remove-profile-photo {
+  margin-top: 0.35rem;
+
+  padding: 0.15rem 0.4rem;
+
+  border: 0;
+
+  background: transparent;
+
+  color: var(--muted);
+
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.remove-profile-photo:hover {
+  color: var(--danger);
+
+  text-decoration: underline;
+}
+
+/* =========================================================
+   LEGACY PHOTO STYLES
+   ========================================================= */
 
 .photo-section {
   grid-column: 1 / -1;
@@ -1323,6 +1935,7 @@ button:disabled {
   color: var(--muted);
 
   font-size: 0.9rem;
+
   line-height: 1.5;
 }
 
@@ -1330,8 +1943,11 @@ button:disabled {
   min-height: 300px;
 
   display: flex;
+
   flex-direction: column;
+
   align-items: center;
+
   justify-content: center;
 
   margin-top: 1.25rem;
@@ -1339,6 +1955,7 @@ button:disabled {
   padding: 2rem;
 
   border: 2px dashed #d7caec;
+
   border-radius: 2rem;
 
   background: var(--paper);
@@ -1353,7 +1970,8 @@ button:disabled {
 .photo-dropzone:hover {
   border-color: var(--coral);
 
-  transform: translateY(-1px);
+  transform:
+    translateY(-1px);
 }
 
 .photo-placeholder {
@@ -1398,6 +2016,7 @@ button:disabled {
 
 .photo-actions {
   display: flex;
+
   flex-wrap: wrap;
 
   justify-content: center;
@@ -1409,6 +2028,7 @@ button:disabled {
 
 .danger-text {
   color: var(--danger);
+
   background: transparent;
 }
 
@@ -1427,32 +2047,23 @@ button:disabled {
   background: #fff1ed;
 
   font-weight: 600;
+
   line-height: 1.5;
 }
 
 .consent-box input {
   margin-top: 0.25rem;
+
   accent-color: var(--coral);
 }
 
-.privacy-note {
-  margin-top: 1rem;
-
-  padding: 0.8rem 1rem;
-
-  border-radius: 0.8rem;
-
-  background: #f8f4ff;
-
-  color: var(--purple-text);
-
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1.5;
-}
+/* =========================================================
+   CURRENT PROFILE
+   ========================================================= */
 
 .current-profile-card {
   display: flex;
+
   flex-direction: column;
 
   align-items: flex-start;
@@ -1490,6 +2101,10 @@ button:disabled {
   font-size: 0.85rem;
   font-weight: 600;
 }
+
+/* =========================================================
+   SETTINGS
+   ========================================================= */
 
 .settings-form {
   width: min(100%, 50rem);
@@ -1532,6 +2147,7 @@ button:disabled {
   padding: 1rem;
 
   border: 1px solid var(--line);
+
   border-radius: 0.8rem;
 
   cursor: pointer;
@@ -1586,6 +2202,7 @@ button:disabled {
   position: absolute;
 
   opacity: 0;
+
   pointer-events: none;
 }
 
@@ -1610,12 +2227,17 @@ button:disabled {
 }
 
 .switch input:checked + span {
-  transform: translateX(23px);
+  transform:
+    translateX(23px);
 }
 
 .switch:has(input:checked) {
   background: var(--coral);
 }
+
+/* =========================================================
+   SAFETY
+   ========================================================= */
 
 .safety-card {
   width: min(100%, 50rem);
@@ -1638,6 +2260,7 @@ button:disabled {
   padding: 0.8rem 1rem;
 
   border: 1px solid transparent;
+
   border-radius: 0.8rem;
 
   text-align: left;
@@ -1651,11 +2274,13 @@ button:disabled {
 
 .danger-bg {
   color: var(--danger);
+
   background: var(--danger-bg);
 }
 
 .danger-outline {
   color: var(--danger);
+
   background: white;
 
   border-color: #f0b7ac;
@@ -1663,10 +2288,15 @@ button:disabled {
 
 .outline-bg {
   color: var(--muted);
+
   background: white;
 
   border-color: var(--line);
 }
+
+/* =========================================================
+   FOOTER
+   ========================================================= */
 
 .site-footer {
   padding: 1.5rem 1.25rem;
@@ -1680,6 +2310,10 @@ button:disabled {
   font-size: 0.85rem;
 }
 
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
 .focus-ring:focus-visible,
 button:focus-visible,
 input:focus-visible,
@@ -1690,20 +2324,28 @@ textarea:focus-visible {
     0 0 0 4px var(--lavender);
 }
 
+/* =========================================================
+   MODALS
+   ========================================================= */
+
 .modal-backdrop {
   position: fixed;
+
   inset: 0;
 
   z-index: 100;
 
   display: grid;
+
   place-items: center;
 
   padding: 1rem;
 
-  background: rgba(37, 33, 31, 0.42);
+  background:
+    rgba(37, 33, 31, 0.42);
 
-  animation: fade-in 0.2s ease both;
+  animation:
+    fade-in 0.2s ease both;
 }
 
 .completion-modal,
@@ -1721,7 +2363,8 @@ textarea:focus-visible {
 
   text-align: center;
 
-  animation: modal-in 0.22s ease both;
+  animation:
+    modal-in 0.22s ease both;
 }
 
 .completion-icon {
@@ -1759,7 +2402,9 @@ textarea:focus-visible {
 .completion-actions,
 .dialog-actions {
   display: flex;
+
   flex-wrap: wrap;
+
   justify-content: center;
 
   gap: 0.75rem;
@@ -1787,15 +2432,25 @@ textarea:focus-visible {
   justify-content: flex-end;
 }
 
+/* =========================================================
+   ANIMATIONS
+   ========================================================= */
+
 @keyframes modal-in {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
+
+    transform:
+      translateY(10px)
+      scale(0.98);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+
+    transform:
+      translateY(0)
+      scale(1);
   }
 }
 
@@ -1811,9 +2466,14 @@ textarea:focus-visible {
 
 @keyframes spin {
   to {
-    transform: rotate(360deg);
+    transform:
+      rotate(360deg);
   }
 }
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
 
 @media (max-width: 760px) {
   .header-inner {
@@ -1832,6 +2492,7 @@ textarea:focus-visible {
     width: 100%;
 
     flex-direction: column;
+
     align-items: stretch;
 
     padding-bottom: 0.75rem;
@@ -1861,6 +2522,7 @@ textarea:focus-visible {
 
   .section-heading-row {
     flex-direction: column;
+
     align-items: stretch;
   }
 
@@ -1894,11 +2556,13 @@ textarea:focus-visible {
     border-right: 0;
   }
 
-  .messages-shell.chat-open .conversation-list-pane {
+  .messages-shell.chat-open
+    .conversation-list-pane {
     display: none;
   }
 
-  .messages-shell:not(.chat-open) .conversation-pane {
+  .messages-shell:not(.chat-open)
+    .conversation-pane {
     display: none;
   }
 
@@ -1976,15 +2640,770 @@ textarea:focus-visible {
   .confirm-modal {
     padding: 1.5rem;
   }
+
+  /* Simple profile photo on small screens */
+
+  .profile-photo-button,
+  .profile-photo-circle,
+  .profile-photo-placeholder {
+    width: 76px;
+    height: 76px;
+  }
+
+  /* Featured interests on small screens */
+
+  .interest-label-row {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 0.25rem;
+  }
+
+  .interest-bubbles {
+    gap: 0.5rem;
+  }
+
+  .interest-bubble {
+    min-height: 38px;
+
+    padding:
+      0.55rem
+      0.8rem;
+
+    font-size: 0.82rem;
+  }
+
+  .interest-more-button {
+    width: 100%;
+
+    margin-top: 0.75rem;
+  }
+
+  .interest-custom-input {
+    margin-top: 1rem;
+  }
 }
+
+/* =========================================================
+   DARK MODE
+   ========================================================= */
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink: #f5f1ec;
+  --paper: #151319;
+  --mist: #211e27;
+  --line: #35303d;
+  --muted: #aaa2b0;
+
+  --coral: #f0715e;
+  --lavender: #302846;
+
+  --purple-text: #c9b9ec;
+  --purple: #a78bca;
+
+  --danger: #ff9a8c;
+  --danger-bg: #3b2423;
+
+  --success: #8ed1ad;
+  --success-bg: #1d3528;
+
+  --shadow:
+    0 12px 36px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: var(--paper);
+
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .app-shell {
+  background-color: var(--paper);
+}
+
+/* =========================================================
+   DARK NAVBAR
+   ========================================================= */
+
+html[data-theme="dark"] .site-header {
+  background:
+    rgba(21, 19, 25, 0.92);
+
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .brand-mark {
+  background:
+    linear-gradient(
+      135deg,
+      #f5f1ec,
+      #a78bca
+    );
+
+  color: #151319;
+}
+
+html[data-theme="dark"] .wordmark {
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .nav-link {
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .nav-link:hover,
+html[data-theme="dark"] .nav-link.active {
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .mobile-menu-toggle {
+  background: #211e27;
+
+  border-color: var(--line);
+
+  color: var(--ink);
+}
+
+/* =========================================================
+   DARK CARDS
+   ========================================================= */
+
+html[data-theme="dark"] .profile-card,
+html[data-theme="dark"] .friend-card,
+html[data-theme="dark"] .messages-shell,
+html[data-theme="dark"] .profile-form,
+html[data-theme="dark"] .settings-form,
+html[data-theme="dark"] .safety-card,
+html[data-theme="dark"] .current-profile-card,
+html[data-theme="dark"] .state-card,
+html[data-theme="dark"] .progress-card,
+html[data-theme="dark"] .insufficient-card,
+html[data-theme="dark"] .completion-modal,
+html[data-theme="dark"] .confirm-modal {
+  background: #1d1a22;
+
+  border-color: var(--line);
+
+  box-shadow: var(--shadow);
+}
+
+/* =========================================================
+   DARK PROFILE
+   ========================================================= */
+
+html[data-theme="dark"] .profile-card:hover {
+  box-shadow:
+    0 22px 42px rgba(0, 0, 0, 0.32);
+}
+
+html[data-theme="dark"] .or-badge {
+  background: #211e27;
+
+  border-color: var(--line);
+
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .interest-box.coral {
+  background: #352321;
+}
+
+html[data-theme="dark"] .interest-box.lavender {
+  background: #282239;
+}
+
+html[data-theme="dark"] .selection-count {
+  background: #211e27;
+
+  color: var(--muted);
+}
+
+/* =========================================================
+   DARK PROGRESS
+   ========================================================= */
+
+html[data-theme="dark"] .progress-track {
+  background: #302b35;
+}
+
+/* =========================================================
+   DARK FORM
+   ========================================================= */
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background: #18161d;
+
+  color: var(--ink);
+
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder {
+  color: #817987;
+}
+
+html[data-theme="dark"] input:focus,
+html[data-theme="dark"] textarea:focus,
+html[data-theme="dark"] select:focus {
+  border-color: #6d5a8c;
+}
+
+/* =========================================================
+   DARK FEATURED INTEREST PICKER
+   ========================================================= */
+
+html[data-theme="dark"] .interest-bubble {
+  background: #211e27;
+
+  border-color: var(--line);
+
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .interest-bubble:hover {
+  background: #302846;
+
+  border-color: var(--purple);
+
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.25);
+}
+
+html[data-theme="dark"] .interest-bubble.is-selected {
+  background: var(--coral);
+
+  border-color: var(--coral);
+
+  color: white;
+
+  box-shadow:
+    0 9px 24px rgba(240, 113, 94, 0.2);
+}
+
+html[data-theme="dark"] .interest-bubble.is-selected:hover {
+  background: var(--coral);
+
+  border-color: var(--coral);
+
+  color: white;
+}
+
+html[data-theme="dark"] .interest-more-button {
+  color: var(--purple);
+}
+
+html[data-theme="dark"] .interest-more-button:hover {
+  background: #211e27;
+
+  border-color: var(--line);
+
+  color: var(--ink);
+}
+
+/* Corrected selector to match TSX */
+
+html[data-theme="dark"] .interest-custom-input input {
+  background: #18161d;
+
+  color: var(--ink);
+
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .interest-custom-input input:focus {
+  border-color: var(--purple);
+
+  box-shadow:
+    0 0 0 4px rgba(157, 132, 204, 0.15);
+}
+
+/* =========================================================
+   DARK BUTTONS
+   ========================================================= */
+
+html[data-theme="dark"] .button.outline {
+  background: #211e27;
+
+  color: var(--ink);
+
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .button.lavender {
+  background: #302846;
+
+  color: #f5f1ec;
+}
+
+html[data-theme="dark"] .button.primary {
+  color: white;
+}
+
+/* =========================================================
+   DARK SEARCH
+   ========================================================= */
+
+html[data-theme="dark"] .search-input-wrap input {
+  background: #18161d;
+
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .search-input-wrap button {
+  color: var(--muted);
+}
+
+/* =========================================================
+   DARK INFO
+   ========================================================= */
+
+html[data-theme="dark"] .empty-banner,
+html[data-theme="dark"] .conversation-empty {
+  background: #282239;
+
+  color: var(--purple-text);
+}
+
+html[data-theme="dark"] .status-message.info {
+  background: #282239;
+
+  border-color: #51456b;
+
+  color: var(--purple-text);
+}
+
+/* =========================================================
+   DARK FRIENDS
+   ========================================================= */
+
+html[data-theme="dark"] .friend-card {
+  background: #1d1a22;
+}
+
+html[data-theme="dark"] .friend-card button {
+  color: var(--ink);
+}
+
+/* =========================================================
+   DARK MESSAGES
+   ========================================================= */
+
+html[data-theme="dark"] .conversation-list-pane {
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .conversation-heading {
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .conversation-heading span {
+  background: #282239;
+
+  color: var(--purple-text);
+}
+
+html[data-theme="dark"] .conversation-item:hover,
+html[data-theme="dark"] .conversation-item.selected {
+  background: #282239;
+}
+
+html[data-theme="dark"] .conversation-header {
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .conversation-more,
+html[data-theme="dark"] .mobile-back-button {
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .message-thread {
+  background:
+    linear-gradient(
+      135deg,
+      #151319,
+      #211d29
+    );
+}
+
+html[data-theme="dark"] .message-composer {
+  background: #18161d;
+
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .composer-row textarea {
+  background: #211e27;
+
+  color: var(--ink);
+
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .attachment-preview {
+  background: #211e27;
+
+  border-color: var(--line);
+}
+
+/* =========================================================
+   DARK PHOTO
+   ========================================================= */
+
+html[data-theme="dark"] .photo-dropzone {
+  background: #211e27;
+
+  border-color: #51456b;
+}
+
+html[data-theme="dark"] .photo-placeholder,
+html[data-theme="dark"] .photo-icon {
+  background: #282239;
+
+  color: var(--purple);
+}
+
+/* Simple circular profile photo */
+
+html[data-theme="dark"] .profile-photo-placeholder {
+  background:
+    linear-gradient(
+      135deg,
+      #352321,
+      #282239
+    );
+
+  border-color: var(--line);
+
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .profile-photo-button:hover {
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] .consent-box {
+  background: #352321;
+}
+
+html[data-theme="dark"] .visibility-pill {
+  background: #352321;
+}
+
+/* =========================================================
+   DARK SETTINGS
+   ========================================================= */
+
+html[data-theme="dark"] .settings-section {
+  border-color: var(--line);
+}
+
+html[data-theme="dark"] .radio-grid label {
+  border-color: var(--line);
+
+  background: #211e27;
+}
+
+html[data-theme="dark"] .toggle-row {
+  background: #282239;
+}
+
+html[data-theme="dark"] .switch {
+  background: #514956;
+}
+
+html[data-theme="dark"] .switch span {
+  background: #f5f1ec;
+}
+
+/* =========================================================
+   DARK SAFETY
+   ========================================================= */
+
+html[data-theme="dark"] .danger-outline {
+  background: #211e27;
+
+  border-color: #70423c;
+}
+
+html[data-theme="dark"] .outline-bg {
+  background: #211e27;
+
+  border-color: var(--line);
+
+  color: var(--muted);
+}
+
+/* =========================================================
+   THEME TOGGLE
+   ========================================================= */
+
+.theme-toggle {
+  position: relative;
+
+  width: 42px;
+  height: 42px;
+
+  flex: 0 0 auto;
+
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 1px solid var(--line);
+
+  border-radius: 50%;
+
+  background: var(--mist);
+
+  color: var(--ink);
+
+  cursor: pointer;
+
+  overflow: hidden;
+
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    transform 180ms ease,
+    box-shadow 220ms ease;
+}
+
+.theme-toggle:hover {
+  transform:
+    translateY(-1px);
+
+  box-shadow:
+    0 6px 18px rgba(55, 40, 31, 0.12);
+}
+
+.theme-toggle:active {
+  transform:
+    scale(0.92);
+}
+
+.theme-toggle:disabled {
+  cursor: default;
+}
+
+.theme-toggle svg {
+  position: relative;
+
+  z-index: 2;
+
+  transition:
+    transform 400ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease;
+}
+
+html[data-theme="dark"] .theme-toggle {
+  background: #28232f;
+
+  border-color: #403849;
+
+  color: #f5e9b8;
+}
+
+/* =========================================================
+   VIEW TRANSITION THEME REVEAL
+   ========================================================= */
+
+::view-transition-group(root) {
+  animation: none;
+}
+
+::view-transition-image-pair(root) {
+  isolation: isolate;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+
+  clip-path:
+    circle(
+      0px
+      at
+      var(--theme-x)
+      var(--theme-y)
+    );
+
+  animation:
+    myfolks-theme-reveal
+    650ms
+    cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+@keyframes myfolks-theme-reveal {
+  from {
+    clip-path:
+      circle(
+        0px
+        at
+        var(--theme-x)
+        var(--theme-y)
+      );
+  }
+
+  to {
+    clip-path:
+      circle(
+        var(--theme-radius)
+        at
+        var(--theme-x)
+        var(--theme-y)
+      );
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 650ms;
+}
+
+/* =========================================================
+   FALLBACK RADIAL
+   ========================================================= */
+
+.theme-radial {
+  position: fixed;
+
+  left: var(--theme-x);
+  top: var(--theme-y);
+
+  width: 2px;
+  height: 2px;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  z-index: 99999;
+
+  transform:
+    translate(-50%, -50%)
+    scale(0);
+
+  will-change: transform;
+
+  animation:
+    theme-radial-fallback
+    650ms
+    cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+.theme-radial-dark {
+  background: #151319;
+}
+
+.theme-radial-light {
+  background: #fffaf4;
+}
+
+@keyframes theme-radial-fallback {
+  from {
+    transform:
+      translate(-50%, -50%)
+      scale(0);
+  }
+
+  to {
+    transform:
+      translate(-50%, -50%)
+      scale(3000);
+  }
+}
+
+html.supports-view-transition .theme-radial {
+  display: none;
+}
+
+/* =========================================================
+   THEME COLOR TRANSITIONS
+   ========================================================= */
+
+body,
+.site-header,
+.app-shell,
+.profile-card,
+.friend-card,
+.messages-shell,
+.profile-form,
+.settings-form,
+.safety-card,
+.current-profile-card,
+.state-card,
+.progress-card,
+.insufficient-card,
+.completion-modal,
+.confirm-modal,
+.photo-dropzone,
+.photo-placeholder,
+.photo-icon,
+.conversation-item,
+.message-thread,
+.message-composer,
+.attachment-preview,
+input,
+textarea,
+select {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+/* =========================================================
+   REDUCED MOTION
+   ========================================================= */
 
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+
     animation-iteration-count: 1 !important;
+
     transition-duration: 0.01ms !important;
+
     scroll-behavior: auto !important;
+  }
+
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
+  }
+
+  .interest-bubble-reveal,
+  .interest-bubble-check {
+    opacity: 1;
+
+    transform: none;
   }
 }
