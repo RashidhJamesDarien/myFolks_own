@@ -36,7 +36,11 @@ import {
   MAX_MESSAGE_ASSET_SIZE,
   FEATURED_INTERESTS,
 } from "@/components/home/constants";
-import { shuffle, apiRequest } from "@/components/home/utils";
+
+import {
+  shuffle,
+  apiRequest,
+} from "@/components/home/utils";
 
 import type {
   View,
@@ -46,34 +50,111 @@ import type {
   UploadedProfilePhoto,
 } from "@/components/home/types";
 
+const DISCOVERY_ROUNDS = 6;
+
+type FriendRequestStatus =
+  | "pending"
+  | "accepted"
+  | "incoming";
+
+type FriendRequestState = {
+  status: FriendRequestStatus;
+  requestId: string;
+};
+
+type FriendRequestRecord = {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  status:
+    | "pending"
+    | "accepted"
+    | "declined";
+  created_at?: string;
+  updated_at?: string;
+  sender?: Profile | null;
+  recipient?: Profile | null;
+  profile?: Profile | null;
+  direction?:
+    | "outgoing"
+    | "incoming";
+};
+
+type FriendRequestsResponse = {
+  requests: FriendRequestRecord[];
+};
+
+type FriendRequestResponse = {
+  request?: FriendRequestRecord | null;
+  id?: string;
+  error?: string;
+};
+
+type DiscoverProfilesResponse = {
+  profiles: Profile[];
+};
+
+type LegacyProfileResponse = {
+  profile?: Profile | null;
+  profile_id?: string;
+  username?: string;
+  display_name?: string;
+  featured_interest?: string;
+  bio?: string;
+  location?: string;
+  visibility?: string;
+  photo_url?: string;
+};
+
 export default function Home() {
-  const [view, setView] = useState<View>("discover");
-  const [darkMode, setDarkMode] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [themeAnimating, setThemeAnimating] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [backendConnected, setBackendConnected] = useState(false);
+  const [view, setView] =
+    useState<View>("discover");
 
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [darkMode, setDarkMode] =
+    useState(false);
 
-  const [discoverState, setDiscoverState] = useState<
-    "loading" | "ready" | "empty" | "error"
-  >("loading");
+  const [authLoading, setAuthLoading] =
+    useState(true);
 
-  const [pairQueue, setPairQueue] = useState<Profile[][]>([]);
-  const [pairIndex, setPairIndex] = useState(0);
+  const [authenticated, setAuthenticated] =
+    useState(false);
 
-  const [positiveSelections, setPositiveSelections] = useState<Profile[]>(
-    [],
-  );
+  const [themeAnimating, setThemeAnimating] =
+    useState(false);
 
-  const [blockedProfiles, setBlockedProfiles] = useState<Set<string>>(
-    new Set(),
-  );
+  const [mobileMenuOpen, setMobileMenuOpen] =
+    useState(false);
+
+  const [backendConnected, setBackendConnected] =
+    useState(false);
+
+  const [profiles, setProfiles] =
+    useState<Profile[]>([]);
+
+  const [discoverState, setDiscoverState] =
+    useState<
+      "loading" | "ready" | "empty" | "error"
+    >("loading");
+
+  const [pairQueue, setPairQueue] =
+    useState<Profile[][]>([]);
+
+  const [pairIndex, setPairIndex] =
+    useState(0);
+
+  const [positiveSelections, setPositiveSelections] =
+    useState<Profile[]>([]);
+
+  const [blockedProfiles, setBlockedProfiles] =
+    useState<Set<string>>(new Set());
 
   const [completionProfile, setCompletionProfile] =
     useState<Profile | null>(null);
+
+  const [friendRequestStates, setFriendRequestStates] =
+    useState<
+      Record<string, FriendRequestState>
+    >({});
 
   const [dialog, setDialog] = useState<{
     title: string;
@@ -81,125 +162,186 @@ export default function Home() {
     action: (() => Promise<void>) | null;
   } | null>(null);
 
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [currentProfile, setCurrentProfile] =
+    useState<Profile | null>(null);
 
-  const [profileConfirmed, setProfileConfirmed] = useState(false);
+  const [profileConfirmed, setProfileConfirmed] =
+    useState(false);
 
   const [activeMessageProfile, setActiveMessageProfile] =
     useState<Profile | null>(null);
 
-  const [messageOpen, setMessageOpen] = useState(false);
+  const [messageOpen, setMessageOpen] =
+    useState(false);
 
-  const [editingProfile, setEditingProfile] = useState(false);
+  const [editingProfile, setEditingProfile] =
+    useState(false);
 
-  const [editFullName, setEditFullName] = useState("");
-  const [editUsername, setEditUsername] = useState("");
-  const [editBio, setEditBio] = useState("");
-  const [editLocation, setEditLocation] = useState("");
-  const [editInterests, setEditInterests] = useState<string[]>([]);
-  const [editCustomInterest, setEditCustomInterest] = useState("");
+  const [editFullName, setEditFullName] =
+    useState("");
+
+  const [editUsername, setEditUsername] =
+    useState("");
+
+  const [editBio, setEditBio] =
+    useState("");
+
+  const [editLocation, setEditLocation] =
+    useState("");
+
+  const [editInterests, setEditInterests] =
+    useState<string[]>([]);
+
+  const [editCustomInterest, setEditCustomInterest] =
+    useState("");
+
   const [editProfilePhoto, setEditProfilePhoto] =
     useState<File | null>(null);
+
   const [editProfilePhotoUrl, setEditProfilePhotoUrl] =
     useState<string | null>(null);
 
-  const [editProfileStatus, setEditProfileStatus] = useState<{
-    text: string;
-    type: "info" | "success" | "error";
-  } | null>(null);
+  const [editProfileStatus, setEditProfileStatus] =
+    useState<{
+      text: string;
+      type: "info" | "success" | "error";
+    } | null>(null);
 
-  const [editProfileSaving, setEditProfileSaving] = useState(false);
+  const [editProfileSaving, setEditProfileSaving] =
+    useState(false);
 
-  const [settings, setSettings] = useState<Settings>({
-    visibility: "published",
-    lastSeenVisibility: "connections",
-    interestDisplay: true,
-    messagePermission: "friends_only",
-    friendNotifications: true,
-    messageNotifications: true,
-  });
-
-  const [friendSearch, setFriendSearch] = useState("");
-
-  const [messageText, setMessageText] = useState("");
-
-  const [messageAsset, setMessageAsset] = useState<File | null>(null);
-
-  const [messageStatus, setMessageStatus] = useState<{
-    text: string;
-    type: "info" | "success" | "error";
-  } | null>(null);
-
-  const [messageSending, setMessageSending] = useState(false);
-
-  const messageFileInput = useRef<HTMLInputElement>(null);
-
-  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
-
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
-
-  const [profileStatus, setProfileStatus] = useState<{
-    text: string;
-    type: "info" | "success" | "error";
-  } | null>(null);
-
-  const [formStatus, setFormStatus] = useState<{
-    text: string;
-    type: "info" | "success" | "error";
-  } | null>(null);
-
-  const [settingsStatus, setSettingsStatus] = useState<{
-    text: string;
-    type: "info" | "success" | "error";
-  } | null>(null);
-
-  const [discoverNotice, setDiscoverNotice] = useState<{
-    text: string;
-    type: "info" | "success" | "error";
-  } | null>(null);
-
-  const [messageCount, setMessageCount] = useState(0);
-
-  const currentPair = pairQueue[pairIndex] || [];
-
-  const availableProfiles = useMemo(
-    () =>
-      profiles.filter(
-        (profile) => !blockedProfiles.has(profile.profile_id),
-      ),
-    [profiles, blockedProfiles],
-  );
-
-  const friends = useMemo(() => {
-    const unique = new Map<string, Profile>();
-
-    positiveSelections.forEach((profile) => {
-      if (!blockedProfiles.has(profile.profile_id)) {
-        unique.set(profile.profile_id, profile);
-      }
+  const [settings, setSettings] =
+    useState<Settings>({
+      visibility: "published",
+      lastSeenVisibility: "connections",
+      interestDisplay: true,
+      messagePermission: "friends_only",
+      friendNotifications: true,
+      messageNotifications: true,
     });
 
-    return Array.from(unique.values()).filter((friend) =>
-      friend.display_name
-        .toLocaleLowerCase()
-        .includes(friendSearch.toLocaleLowerCase().trim()),
-    );
-  }, [positiveSelections, blockedProfiles, friendSearch]);
+  const [friendSearch, setFriendSearch] =
+    useState("");
 
-  const showView = (nextView: View) => {
+  const [messageText, setMessageText] =
+    useState("");
+
+  const [messageAsset, setMessageAsset] =
+    useState<File | null>(null);
+
+  const [messageStatus, setMessageStatus] =
+    useState<{
+      text: string;
+      type: "info" | "success" | "error";
+    } | null>(null);
+
+  const [messageSending, setMessageSending] =
+    useState(false);
+
+  const messageFileInput =
+    useRef<HTMLInputElement>(null);
+
+  const [profilePhoto, setProfilePhoto] =
+    useState<File | null>(null);
+
+  const [profilePhotoUrl, setProfilePhotoUrl] =
+    useState<string | null>(null);
+
+  const [profileStatus, setProfileStatus] =
+    useState<{
+      text: string;
+      type: "info" | "success" | "error";
+    } | null>(null);
+
+  const [formStatus, setFormStatus] =
+    useState<{
+      text: string;
+      type: "info" | "success" | "error";
+    } | null>(null);
+
+  const [settingsStatus, setSettingsStatus] =
+    useState<{
+      text: string;
+      type: "info" | "success" | "error";
+    } | null>(null);
+
+  const [discoverNotice, setDiscoverNotice] =
+    useState<{
+      text: string;
+      type: "info" | "success" | "error";
+    } | null>(null);
+
+  const [messageCount, setMessageCount] =
+    useState(0);
+
+  const currentPair =
+    pairQueue[pairIndex] || [];
+
+  const availableProfiles =
+    useMemo(
+      () =>
+        profiles.filter(
+          (profile) =>
+            profile.profile_id !==
+              currentProfile?.profile_id &&
+            !blockedProfiles.has(
+              profile.profile_id,
+            ) &&
+            !friendRequestStates[
+              profile.profile_id
+            ],
+        ),
+      [
+        profiles,
+        currentProfile,
+        blockedProfiles,
+        friendRequestStates,
+      ],
+    );
+
+  /*
+   * Discovery selections are not friendships.
+   *
+   * A profile only becomes a friend after:
+   *
+   * 1. A friend request is sent.
+   * 2. The recipient accepts it.
+   *
+   * Friends will be loaded from the friends API once that view
+   * is fully connected.
+   */
+  const friends = useMemo(() => {
+    return [] as Profile[];
+  }, []);
+
+  const showView = (
+    nextView: View,
+  ) => {
     setView(nextView);
     setMobileMenuOpen(false);
   };
 
-  const getThemeRadius = (x: number, y: number) => {
+  const getThemeRadius = (
+    x: number,
+    y: number,
+  ) => {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
     return Math.max(
       Math.hypot(x, y),
-      Math.hypot(width - x, y),
-      Math.hypot(x, height - y),
-      Math.hypot(width - x, height - y),
+      Math.hypot(
+        width - x,
+        y,
+      ),
+      Math.hypot(
+        x,
+        height - y,
+      ),
+      Math.hypot(
+        width - x,
+        height - y,
+      ),
     );
   };
 
@@ -208,16 +350,33 @@ export default function Home() {
   ) => {
     if (themeAnimating) return;
 
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect =
+      event.currentTarget.getBoundingClientRect();
 
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
+    const x =
+      rect.left +
+      rect.width / 2;
 
-    const nextDarkMode = !darkMode;
-    const radius = getThemeRadius(x, y);
+    const y =
+      rect.top +
+      rect.height / 2;
 
-    document.documentElement.style.setProperty("--theme-x", `${x}px`);
-    document.documentElement.style.setProperty("--theme-y", `${y}px`);
+    const nextDarkMode =
+      !darkMode;
+
+    const radius =
+      getThemeRadius(x, y);
+
+    document.documentElement.style.setProperty(
+      "--theme-x",
+      `${x}px`,
+    );
+
+    document.documentElement.style.setProperty(
+      "--theme-y",
+      `${y}px`,
+    );
+
     document.documentElement.style.setProperty(
       "--theme-radius",
       `${radius}px`,
@@ -226,53 +385,87 @@ export default function Home() {
     setThemeAnimating(true);
 
     const applyTheme = () => {
-      document.documentElement.dataset.theme = nextDarkMode
-        ? "dark"
-        : "light";
+      document.documentElement.dataset.theme =
+        nextDarkMode
+          ? "dark"
+          : "light";
 
       flushSync(() => {
-        setDarkMode(nextDarkMode);
+        setDarkMode(
+          nextDarkMode,
+        );
       });
 
       window.localStorage.setItem(
         "myfolks-theme",
-        nextDarkMode ? "dark" : "light",
+        nextDarkMode
+          ? "dark"
+          : "light",
       );
     };
 
-    const doc = document as Document & {
-      startViewTransition?: (
-        callback: () => void | Promise<void>,
-      ) => {
-        finished: Promise<void>;
+    const doc =
+      document as Document & {
+        startViewTransition?: (
+          callback:
+            | (() => void)
+            | (() => Promise<void>),
+        ) => {
+          finished: Promise<void>;
+        };
       };
-    };
 
     if (doc.startViewTransition) {
-      const transition = doc.startViewTransition(applyTheme);
+      const transition =
+        doc.startViewTransition(
+          applyTheme,
+        );
 
       void transition.finished.then(
-        () => setThemeAnimating(false),
-        () => setThemeAnimating(false),
+        () =>
+          setThemeAnimating(
+            false,
+          ),
+        () =>
+          setThemeAnimating(
+            false,
+          ),
       );
     } else {
       applyTheme();
 
-      window.setTimeout(() => {
-        setThemeAnimating(false);
-      }, 700);
+      window.setTimeout(
+        () => {
+          setThemeAnimating(
+            false,
+          );
+        },
+        700,
+      );
     }
   };
 
   const setStatus = (
-    type: "info" | "success" | "error",
+    type:
+      | "info"
+      | "success"
+      | "error",
     text: string,
-    target: "discover" | "profile" | "settings" | "message",
+    target:
+      | "discover"
+      | "profile"
+      | "settings"
+      | "message",
   ) => {
-    const value = { text, type };
+    const value = {
+      text,
+      type,
+    };
 
     if (target === "discover") {
-      setDiscoverNotice(value);
+      setDiscoverNotice(
+        value,
+      );
     }
 
     if (target === "profile") {
@@ -288,62 +481,321 @@ export default function Home() {
     }
   };
 
-  const buildPairQueue = (sourceProfiles = profiles) => {
-    const available = sourceProfiles.filter(
-      (profile) => !blockedProfiles.has(profile.profile_id),
-    );
+  const buildPairQueue = (
+    sourceProfiles = profiles,
+    requestStates = friendRequestStates,
+  ) => {
+    const available =
+      sourceProfiles.filter(
+        (profile) =>
+          profile.profile_id !==
+            currentProfile?.profile_id &&
+          !blockedProfiles.has(
+            profile.profile_id,
+          ) &&
+          !requestStates[
+            profile.profile_id
+          ],
+      );
 
-    const pairs: Profile[][] = [];
+    if (available.length < 2) {
+      setPairQueue([]);
+      setPairIndex(0);
+      return;
+    }
 
-    for (let i = 0; i < available.length; i += 1) {
-      for (let j = i + 1; j < available.length; j += 1) {
-        pairs.push([available[i], available[j]]);
+    const allPairs: Profile[][] = [];
+
+    for (
+      let i = 0;
+      i < available.length;
+      i += 1
+    ) {
+      for (
+        let j = i + 1;
+        j < available.length;
+        j += 1
+      ) {
+        allPairs.push([
+          available[i],
+          available[j],
+        ]);
       }
     }
 
-    const shuffled = shuffle(pairs);
+    const shuffledPairs =
+      shuffle(allPairs);
 
-    setPairQueue(shuffled);
+    const selectedPairs:
+      Profile[][] = [];
+
+    for (
+      let i = 0;
+      i <
+        shuffledPairs.length &&
+        selectedPairs.length <
+          DISCOVERY_ROUNDS;
+      i += 1
+    ) {
+      selectedPairs.push(
+        shuffledPairs[i],
+      );
+    }
+
+    if (
+      selectedPairs.length <
+        DISCOVERY_ROUNDS &&
+      shuffledPairs.length > 0
+    ) {
+      let repeatIndex = 0;
+
+      while (
+        selectedPairs.length <
+        DISCOVERY_ROUNDS
+      ) {
+        selectedPairs.push(
+          shuffledPairs[
+            repeatIndex %
+              shuffledPairs.length
+          ],
+        );
+
+        repeatIndex += 1;
+      }
+    }
+
+    setPairQueue(
+      selectedPairs,
+    );
+
     setPairIndex(0);
   };
 
-  const loadRemoteProfiles = async () => {
-    setDiscoverState("loading");
+  const loadFriendRequestStatuses =
+    async (): Promise<
+      Record<
+        string,
+        FriendRequestState
+      > | null
+    > => {
+      try {
+        if (!backendConnected) {
+          return null;
+        }
 
-    try {
-      const data = await apiRequest(API.discover);
+        const {
+          data: { user },
+          error: userError,
+        } =
+          await supabase.auth.getUser();
 
-      const loadedProfiles: Profile[] = (
-        data.profiles || data || []
-      ).filter((item: Profile) => item?.profile_id);
+        if (
+          userError ||
+          !user
+        ) {
+          return null;
+        }
 
-      setProfiles(loadedProfiles);
+        /*
+         * apiRequest() intentionally returns unknown.
+         * Cast the response to the known API shape here.
+         */
+        const data =
+          (await apiRequest(
+            API.friendRequests,
+          )) as FriendRequestsResponse;
 
+        const requests =
+          Array.isArray(
+            data.requests,
+          )
+            ? data.requests
+            : [];
+
+        const states: Record<
+          string,
+          FriendRequestState
+        > = {};
+
+        for (
+          const request of requests
+        ) {
+          if (
+            !request ||
+            typeof request.id !==
+              "string" ||
+            typeof request.sender_id !==
+              "string" ||
+            typeof request.recipient_id !==
+              "string" ||
+            typeof request.status !==
+              "string"
+          ) {
+            continue;
+          }
+
+          const otherProfileId =
+            request.sender_id ===
+            user.id
+              ? request.recipient_id
+              : request.sender_id;
+
+          if (!otherProfileId) {
+            continue;
+          }
+
+          if (
+            request.status ===
+            "accepted"
+          ) {
+            states[
+              otherProfileId
+            ] = {
+              status:
+                "accepted",
+              requestId:
+                request.id,
+            };
+
+            continue;
+          }
+
+          if (
+            request.status ===
+            "pending"
+          ) {
+            if (
+              request.sender_id ===
+              user.id
+            ) {
+              states[
+                otherProfileId
+              ] = {
+                status:
+                  "pending",
+                requestId:
+                  request.id,
+              };
+            } else {
+              states[
+                otherProfileId
+              ] = {
+                status:
+                  "incoming",
+                requestId:
+                  request.id,
+              };
+            }
+          }
+        }
+
+        setFriendRequestStates(
+          states,
+        );
+
+        return states;
+      } catch (error) {
+        console.error(
+          "Failed to load friend request statuses:",
+          error,
+        );
+
+        return null;
+      }
+    };
+
+  const loadRemoteProfiles =
+    async (
+      requestStates = friendRequestStates,
+    ) => {
       setDiscoverState(
-        loadedProfiles.length ? "ready" : "empty",
+        "loading",
       );
 
-      buildPairQueue(loadedProfiles);
-    } catch {
-      setProfiles([]);
-      setPairQueue([]);
-      setPairIndex(0);
-      setDiscoverState("error");
-    }
-  };
+      try {
+        const data =
+          (await apiRequest(
+            API.discover,
+          )) as DiscoverProfilesResponse;
+
+        const loadedProfiles:
+          Profile[] = (
+          Array.isArray(
+            data.profiles,
+          )
+            ? data.profiles
+            : []
+        )
+          .filter(
+            (item: Profile) =>
+              item?.profile_id,
+          )
+          .filter(
+            (item: Profile) =>
+              item.profile_id !==
+              currentProfile?.profile_id,
+          );
+
+        setProfiles(
+          loadedProfiles,
+        );
+
+        const discoverableProfiles =
+          loadedProfiles.filter(
+            (profile) =>
+              profile.profile_id !==
+                currentProfile?.profile_id &&
+              !blockedProfiles.has(
+                profile.profile_id,
+              ) &&
+              !requestStates[
+                profile.profile_id
+              ],
+          );
+
+        setDiscoverState(
+          discoverableProfiles.length
+            ? "ready"
+            : "empty",
+        );
+
+        buildPairQueue(
+          loadedProfiles,
+          requestStates,
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load remote profiles:",
+          error,
+        );
+
+        setProfiles([]);
+        setPairQueue([]);
+        setPairIndex(0);
+        setDiscoverState(
+          "error",
+        );
+      }
+    };
 
   useLayoutEffect(() => {
-    const savedTheme = window.localStorage.getItem("myfolks-theme");
+    const savedTheme =
+      window.localStorage.getItem(
+        "myfolks-theme",
+      );
 
-    const isDark = savedTheme === "dark";
+    const isDark =
+      savedTheme === "dark";
 
-    document.documentElement.dataset.theme = isDark
-      ? "dark"
-      : "light";
+    document.documentElement.dataset.theme =
+      isDark
+        ? "dark"
+        : "light";
 
     document.documentElement.classList.toggle(
       "supports-view-transition",
-      "startViewTransition" in document,
+      "startViewTransition" in
+        document,
     );
 
     setDarkMode(isDark);
@@ -352,31 +804,52 @@ export default function Home() {
   useEffect(() => {
     let mounted = true;
 
-    const initializeAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    const initializeAuth =
+      async () => {
+        const {
+          data: { session },
+        } =
+          await supabase.auth.getSession();
 
-      if (!mounted) return;
+        if (!mounted) return;
 
-      setAuthenticated(Boolean(session));
-      setBackendConnected(Boolean(session));
-      setAuthLoading(false);
-    };
+        setAuthenticated(
+          Boolean(session),
+        );
+
+        setBackendConnected(
+          Boolean(session),
+        );
+
+        setAuthLoading(
+          false,
+        );
+      };
 
     void initializeAuth();
 
     const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        if (!mounted) return;
-
-        setAuthenticated(Boolean(session));
-        setBackendConnected(Boolean(session));
-        setAuthLoading(false);
+      data: {
+        subscription,
       },
-    );
+    } =
+      supabase.auth.onAuthStateChange(
+        (_event, session) => {
+          if (!mounted) return;
+
+          setAuthenticated(
+            Boolean(session),
+          );
+
+          setBackendConnected(
+            Boolean(session),
+          );
+
+          setAuthLoading(
+            false,
+          );
+        },
+      );
 
     return () => {
       mounted = false;
@@ -385,169 +858,284 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (!authenticated)
+      return;
 
-    const loadProfile = async () => {
-      try {
-        const profile = await getCurrentUserProfile();
+    const loadProfile =
+      async () => {
+        try {
+          const profile =
+            await getCurrentUserProfile();
 
-        if (!profile) {
-          setCurrentProfile(null);
-          setProfileConfirmed(false);
-          return;
-        }
+          if (!profile) {
+            setCurrentProfile(
+              null,
+            );
 
-        const loadedProfile: Profile = {
-          profile_id: profile.id,
+            setProfileConfirmed(
+              false,
+            );
 
-          username:
-            typeof profile.username === "string"
-              ? profile.username
-              : undefined,
+            return;
+          }
 
-          display_name:
-            typeof profile.full_name === "string"
-              ? profile.full_name
-              : typeof profile.username === "string"
+          const loadedProfile:
+            Profile = {
+            profile_id:
+              profile.id,
+
+            username:
+              typeof profile.username ===
+              "string"
                 ? profile.username
-                : "myFolks user",
+                : undefined,
 
-          featured_interest:
-            typeof profile.featured_interest === "string"
-              ? profile.featured_interest
-              : "",
+            display_name:
+              typeof profile.full_name ===
+              "string"
+                ? profile.full_name
+                : typeof profile.username ===
+                    "string"
+                  ? profile.username
+                  : "myFolks user",
 
-          bio:
-            typeof profile.bio === "string"
-              ? profile.bio
-              : "",
+            featured_interest:
+              typeof profile.featured_interest ===
+              "string"
+                ? profile.featured_interest
+                : "",
 
-          location:
-            typeof profile.location === "string"
-              ? profile.location
-              : "",
+            bio:
+              typeof profile.bio ===
+              "string"
+                ? profile.bio
+                : "",
 
-          visibility: "published",
+            location:
+              typeof profile.location ===
+              "string"
+                ? profile.location
+                : "",
 
-          allows_messages: true,
+            visibility:
+              "published",
 
-          photo_url:
-            typeof profile.profile_image_url === "string"
-              ? profile.profile_image_url
-              : undefined,
-        };
+            allows_messages:
+              true,
 
-        setCurrentProfile(loadedProfile);
-        setProfileConfirmed(true);
-      } catch (error) {
-        console.error("Failed to load profile:", error);
+            photo_url:
+              typeof profile.profile_image_url ===
+              "string"
+                ? profile.profile_image_url
+                : undefined,
+          };
 
-        setCurrentProfile(null);
-        setProfileConfirmed(false);
-      }
-    };
+          setCurrentProfile(
+            loadedProfile,
+          );
+
+          setProfileConfirmed(
+            true,
+          );
+        } catch (error) {
+          console.error(
+            "Failed to load profile:",
+            error,
+          );
+
+          setCurrentProfile(
+            null,
+          );
+
+          setProfileConfirmed(
+            false,
+          );
+        }
+      };
 
     void loadProfile();
   }, [authenticated]);
 
   useEffect(() => {
-    if (!authenticated) return;
+    if (
+      !authenticated ||
+      !backendConnected ||
+      view !== "discover"
+    ) {
+      return;
+    }
 
-    void loadRemoteProfiles();
-  }, [authenticated]);
+    const refreshDiscover =
+      async () => {
+        const requestStates =
+          await loadFriendRequestStatuses();
+
+        await loadRemoteProfiles(
+          requestStates ??
+            friendRequestStates,
+        );
+      };
+
+    void refreshDiscover();
+  }, [
+    authenticated,
+    backendConnected,
+    view,
+    currentProfile?.profile_id,
+  ]);
 
   useEffect(() => {
     return () => {
       if (editProfilePhotoUrl) {
-        URL.revokeObjectURL(editProfilePhotoUrl);
+        URL.revokeObjectURL(
+          editProfilePhotoUrl,
+        );
       }
     };
-  }, [editProfilePhotoUrl]);
+  }, [
+    editProfilePhotoUrl,
+  ]);
 
-  const chooseInterest = (index: number) => {
-    const chosen = currentPair[index];
+  const chooseInterest = (
+    index: number,
+  ) => {
+    const chosen =
+      currentPair[index];
 
     if (!chosen) return;
 
-    setPositiveSelections((previous) => [
-      ...previous,
-      chosen,
-    ]);
+    setPositiveSelections(
+      (previous) => [
+        ...previous,
+        chosen,
+      ],
+    );
 
-    const nextIndex = pairIndex + 1;
+    const nextIndex =
+      pairIndex + 1;
 
-    if (nextIndex >= pairQueue.length) {
-      setCompletionProfile(chosen);
+    if (
+      nextIndex >=
+      pairQueue.length
+    ) {
+      setCompletionProfile(
+        chosen,
+      );
+
       return;
     }
 
-    setPairIndex(nextIndex);
+    setPairIndex(
+      nextIndex,
+    );
   };
 
   const skipPair = () => {
-    const nextIndex = pairIndex + 1;
+    const nextIndex =
+      pairIndex + 1;
 
-    if (nextIndex >= pairQueue.length) {
+    if (
+      nextIndex >=
+      pairQueue.length
+    ) {
       setCompletionProfile(
-        positiveSelections[positiveSelections.length - 1] || null,
+        positiveSelections[
+          positiveSelections.length -
+            1
+        ] || null,
       );
+
       return;
     }
 
-    setPairIndex(nextIndex);
+    setPairIndex(
+      nextIndex,
+    );
   };
 
-  const reportProfile = async (profile: Profile) => {
+  const reportProfile = async (
+    profile: Profile,
+  ) => {
     try {
       if (!backendConnected) {
-        throw new Error("backend_unavailable");
+        throw new Error(
+          "backend_unavailable",
+        );
       }
 
-      await apiRequest(API.reports, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      await apiRequest(
+        API.reports,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            reported_profile_id:
+              profile.profile_id,
+          }),
         },
-        body: JSON.stringify({
-          reported_profile_id: profile.profile_id,
-        }),
-      });
+      );
 
       setStatus(
         "success",
         "Report submitted for review.",
         "discover",
       );
-    } catch {
+    } catch (error) {
+      console.error(
+        "Failed to report profile:",
+        error,
+      );
+
       setStatus(
         "error",
-        "The report could not be saved remotely.",
+        error instanceof Error
+          ? error.message
+          : "The report could not be saved remotely.",
         "discover",
       );
     }
   };
 
-  const blockProfile = async (profile: Profile) => {
+  const blockProfile = async (
+    profile: Profile,
+  ) => {
     try {
       if (!backendConnected) {
-        throw new Error("backend_unavailable");
+        throw new Error(
+          "backend_unavailable",
+        );
       }
 
-      await apiRequest(API.blocks, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      await apiRequest(
+        API.blocks,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            blocked_profile_id:
+              profile.profile_id,
+          }),
         },
-        body: JSON.stringify({
-          blocked_profile_id: profile.profile_id,
-        }),
-      });
+      );
 
-      const nextBlocked = new Set(blockedProfiles);
+      const nextBlocked =
+        new Set(
+          blockedProfiles,
+        );
 
-      nextBlocked.add(profile.profile_id);
+      nextBlocked.add(
+        profile.profile_id,
+      );
 
-      setBlockedProfiles(nextBlocked);
+      setBlockedProfiles(
+        nextBlocked,
+      );
 
       setStatus(
         "success",
@@ -557,70 +1145,297 @@ export default function Home() {
 
       buildPairQueue(
         profiles.filter(
-          (item) => item.profile_id !== profile.profile_id,
+          (item) =>
+            item.profile_id !==
+            profile.profile_id,
         ),
       );
-    } catch {
+    } catch (error) {
+      console.error(
+        "Failed to block profile:",
+        error,
+      );
+
       setStatus(
         "error",
-        "The block could not be saved remotely.",
+        error instanceof Error
+          ? error.message
+          : "The block could not be saved remotely.",
         "discover",
       );
     }
   };
 
-  const sendFriendRequest = async () => {
-    if (!completionProfile) return;
-
-    try {
-      if (!backendConnected) {
-        throw new Error("backend_unavailable");
+  const sendFriendRequest =
+    async () => {
+      if (!completionProfile) {
+        return;
       }
 
-      await apiRequest(API.friendRequests, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          profile_id: completionProfile.profile_id,
-        }),
-      });
+      const profileId =
+        completionProfile.profile_id;
 
-      setStatus(
-        "success",
-        "Request sent. It stays pending until they choose to accept.",
-        "discover",
-      );
+      const existingState =
+        friendRequestStates[
+          profileId
+        ];
 
-      setCompletionProfile(null);
-    } catch {
-      setStatus(
-        "error",
-        "The request could not be saved. No remote request was created.",
-        "discover",
-      );
-    }
-  };
+      const existingStatus =
+        existingState?.status;
 
-  const openSelectedMessage = (profile: Profile) => {
-    if (!profile.allows_messages) {
+      if (
+        existingStatus ===
+        "pending"
+      ) {
+        setStatus(
+          "info",
+          "A friend request is already pending.",
+          "discover",
+        );
+
+        return;
+      }
+
+      if (
+        existingStatus ===
+        "accepted"
+      ) {
+        setStatus(
+          "info",
+          "You are already friends with this person.",
+          "discover",
+        );
+
+        return;
+      }
+
+      if (
+        existingStatus ===
+        "incoming"
+      ) {
+        setStatus(
+          "info",
+          "This person has already sent you a friend request. Check your friend requests to accept it.",
+          "discover",
+        );
+
+        return;
+      }
+
+      try {
+        if (!backendConnected) {
+          throw new Error(
+            "Your session is not connected to the backend. Please refresh and try again.",
+          );
+        }
+
+        /*
+         * The API expects recipient_profile_id.
+         */
+        const data =
+          (await apiRequest(
+            API.friendRequests,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                recipient_profile_id:
+                  profileId,
+              }),
+            },
+          )) as FriendRequestResponse;
+
+        const createdRequestId =
+          typeof data.request?.id ===
+          "string"
+            ? data.request.id
+            : typeof data.id ===
+                "string"
+              ? data.id
+              : "";
+
+        const nextFriendRequestStates =
+          {
+            ...friendRequestStates,
+            [profileId]: {
+              status:
+                "pending" as const,
+              requestId:
+                createdRequestId ||
+                friendRequestStates[
+                  profileId
+                ]?.requestId ||
+                "",
+            },
+          };
+
+        setFriendRequestStates(
+          nextFriendRequestStates,
+        );
+
+        setPositiveSelections(
+          [],
+        );
+
+        setPairQueue([]);
+
+        setPairIndex(0);
+
+        setCompletionProfile(
+          null,
+        );
+
+        setStatus(
+          "success",
+          "Friend request sent. Discovering new people for you.",
+          "discover",
+        );
+
+        const synchronizedStates =
+          await loadFriendRequestStatuses();
+
+        await loadRemoteProfiles(
+          synchronizedStates ??
+            nextFriendRequestStates,
+        );
+
+        setView("discover");
+      } catch (error) {
+        console.error(
+          "Failed to send friend request:",
+          error,
+        );
+
+        const errorMessage =
+          error instanceof Error &&
+          error.message.trim()
+            ? error.message.trim()
+            : "Unable to send the friend request.";
+
+        if (
+          errorMessage ===
+          "A friend request is already pending."
+        ) {
+          setFriendRequestStates(
+            (current) => ({
+              ...current,
+              [profileId]: {
+                status:
+                  "pending",
+                requestId:
+                  current[
+                    profileId
+                  ]?.requestId ||
+                  "",
+              },
+            }),
+          );
+
+          void loadFriendRequestStatuses();
+        } else if (
+          errorMessage ===
+          "You are already friends with this person."
+        ) {
+          setFriendRequestStates(
+            (current) => ({
+              ...current,
+              [profileId]: {
+                status:
+                  "accepted",
+                requestId:
+                  current[
+                    profileId
+                  ]?.requestId ||
+                  "",
+              },
+            }),
+          );
+
+          void loadFriendRequestStatuses();
+        } else if (
+          errorMessage.includes(
+            "already sent you a friend request",
+          )
+        ) {
+          setFriendRequestStates(
+            (current) => ({
+              ...current,
+              [profileId]: {
+                status:
+                  "incoming",
+                requestId:
+                  current[
+                    profileId
+                  ]?.requestId ||
+                  "",
+              },
+            }),
+          );
+
+          void loadFriendRequestStatuses();
+        }
+
+        setStatus(
+          "error",
+          errorMessage,
+          "discover",
+        );
+      }
+    };
+
+  const openSelectedMessage = (
+    profile: Profile,
+  ) => {
+    const relationship =
+      friendRequestStates[
+        profile.profile_id
+      ];
+
+    if (
+      relationship?.status !==
+      "accepted"
+    ) {
       setStatus(
         "info",
-        "A friend request must be accepted before you can message this person.",
+        "You can message this person after they accept your friend request.",
         "discover",
       );
 
       return;
     }
 
-    setActiveMessageProfile(profile);
+    if (
+      profile.allows_messages ===
+      false
+    ) {
+      setStatus(
+        "info",
+        "This person is not accepting messages right now.",
+        "discover",
+      );
+
+      return;
+    }
+
+    setActiveMessageProfile(
+      profile,
+    );
+
     setMessageOpen(true);
-    setCompletionProfile(null);
+
+    setCompletionProfile(
+      null,
+    );
+
     setView("messages");
   };
 
-  const chooseProfilePhoto = (file?: File) => {
+  const chooseProfilePhoto = (
+    file?: File,
+  ) => {
     if (!file) return;
 
     const allowed = [
@@ -629,7 +1444,11 @@ export default function Home() {
       "image/webp",
     ].includes(file.type);
 
-    if (!allowed || file.size > MAX_PROFILE_PHOTO_SIZE) {
+    if (
+      !allowed ||
+      file.size >
+        MAX_PROFILE_PHOTO_SIZE
+    ) {
       setProfileStatus({
         text: "Choose a JPG, PNG, or WebP image no larger than 10 MB.",
         type: "error",
@@ -639,10 +1458,15 @@ export default function Home() {
     }
 
     if (profilePhotoUrl) {
-      URL.revokeObjectURL(profilePhotoUrl);
+      URL.revokeObjectURL(
+        profilePhotoUrl,
+      );
     }
 
-    const url = URL.createObjectURL(file);
+    const url =
+      URL.createObjectURL(
+        file,
+      );
 
     setProfilePhoto(file);
     setProfilePhotoUrl(url);
@@ -653,7 +1477,9 @@ export default function Home() {
     });
   };
 
-  const chooseEditProfilePhoto = (file?: File) => {
+  const chooseEditProfilePhoto = (
+    file?: File,
+  ) => {
     if (!file) return;
 
     const allowed = [
@@ -662,7 +1488,11 @@ export default function Home() {
       "image/webp",
     ].includes(file.type);
 
-    if (!allowed || file.size > MAX_PROFILE_PHOTO_SIZE) {
+    if (
+      !allowed ||
+      file.size >
+        MAX_PROFILE_PHOTO_SIZE
+    ) {
       setEditProfileStatus({
         text: "Choose a JPG, PNG, or WebP image no larger than 10 MB.",
         type: "error",
@@ -672,13 +1502,20 @@ export default function Home() {
     }
 
     if (editProfilePhotoUrl) {
-      URL.revokeObjectURL(editProfilePhotoUrl);
+      URL.revokeObjectURL(
+        editProfilePhotoUrl,
+      );
     }
 
-    const url = URL.createObjectURL(file);
+    const url =
+      URL.createObjectURL(
+        file,
+      );
 
     setEditProfilePhoto(file);
-    setEditProfilePhotoUrl(url);
+    setEditProfilePhotoUrl(
+      url,
+    );
 
     setEditProfileStatus({
       text: "New profile photo selected.",
@@ -689,7 +1526,9 @@ export default function Home() {
   useEffect(() => {
     return () => {
       if (profilePhotoUrl) {
-        URL.revokeObjectURL(profilePhotoUrl);
+        URL.revokeObjectURL(
+          profilePhotoUrl,
+        );
       }
     };
   }, [profilePhotoUrl]);
@@ -699,26 +1538,35 @@ export default function Home() {
   ) => {
     event.preventDefault();
 
-    const form = event.currentTarget;
+    const form =
+      event.currentTarget;
 
     if (!form.checkValidity()) {
       form.reportValidity();
+
       return;
     }
 
-    const nameInput = document.getElementById(
-      "profile-name",
-    ) as HTMLInputElement | null;
+    const nameInput =
+      document.getElementById(
+        "profile-name",
+      ) as HTMLInputElement | null;
 
-    const interestInput = document.getElementById(
-      "profile-interest",
-    ) as HTMLInputElement | null;
+    const interestInput =
+      document.getElementById(
+        "profile-interest",
+      ) as HTMLInputElement | null;
 
-    const bioInput = document.getElementById(
-      "profile-bio",
-    ) as HTMLTextAreaElement | null;
+    const bioInput =
+      document.getElementById(
+        "profile-bio",
+      ) as HTMLTextAreaElement | null;
 
-    if (!nameInput || !interestInput || !bioInput) {
+    if (
+      !nameInput ||
+      !interestInput ||
+      !bioInput
+    ) {
       setFormStatus({
         text: "The profile form could not be read. Please refresh and try again.",
         type: "error",
@@ -729,20 +1577,30 @@ export default function Home() {
 
     try {
       if (!backendConnected) {
-        throw new Error("backend_unavailable");
+        throw new Error(
+          "backend_unavailable",
+        );
       }
 
       const {
         data: { user },
         error: userError,
-      } = await supabase.auth.getUser();
+      } =
+        await supabase.auth.getUser();
 
-      if (userError || !user) {
-        throw new Error("You must be signed in.");
+      if (
+        userError ||
+        !user
+      ) {
+        throw new Error(
+          "You must be signed in.",
+        );
       }
 
       const metadataUsername =
-        typeof user.user_metadata?.username === "string"
+        typeof user.user_metadata
+          ?.username ===
+        "string"
           ? user.user_metadata.username.trim()
           : "";
 
@@ -752,125 +1610,192 @@ export default function Home() {
         );
       }
 
-      let uploadedPhoto: UploadedProfilePhoto | null = null;
+      let uploadedPhoto:
+        | UploadedProfilePhoto
+        | null = null;
 
       if (profilePhoto) {
-        uploadedPhoto = await uploadProfileImage(profilePhoto);
+        uploadedPhoto =
+          await uploadProfileImage(
+            profilePhoto,
+          );
       }
 
-      const savedProfile = await createSupabaseProfile({
-        username: metadataUsername,
-        fullName: nameInput.value.trim(),
-        featuredInterest: interestInput.value.trim(),
-        bio: bioInput.value.trim(),
-        location: "",
-        profileImageUrl: uploadedPhoto?.url || null,
-      });
+      const savedProfile =
+        await createSupabaseProfile({
+          username:
+            metadataUsername,
 
-      const normalizedProfile: Profile = {
-        profile_id: savedProfile.id,
+          fullName:
+            nameInput.value.trim(),
+
+          featuredInterest:
+            interestInput.value.trim(),
+
+          bio:
+            bioInput.value.trim(),
+
+          location: "",
+
+          profileImageUrl:
+            uploadedPhoto?.url ||
+            null,
+        });
+
+      const normalizedProfile:
+        Profile = {
+        profile_id:
+          savedProfile.id,
 
         username:
-          typeof savedProfile.username === "string"
+          typeof savedProfile.username ===
+          "string"
             ? savedProfile.username
             : metadataUsername,
 
         display_name:
-          typeof savedProfile.full_name === "string"
+          typeof savedProfile.full_name ===
+          "string"
             ? savedProfile.full_name
             : nameInput.value.trim(),
 
         featured_interest:
-          typeof savedProfile.featured_interest === "string"
+          typeof savedProfile.featured_interest ===
+          "string"
             ? savedProfile.featured_interest
             : interestInput.value.trim(),
 
         bio:
-          typeof savedProfile.bio === "string"
+          typeof savedProfile.bio ===
+          "string"
             ? savedProfile.bio
             : bioInput.value.trim(),
 
         location:
-          typeof savedProfile.location === "string"
+          typeof savedProfile.location ===
+          "string"
             ? savedProfile.location
             : "",
 
-        visibility: "published",
+        visibility:
+          "published",
 
-        allows_messages: true,
+        allows_messages:
+          true,
 
         photo_url:
-          typeof savedProfile.profile_image_url === "string"
+          typeof savedProfile.profile_image_url ===
+          "string"
             ? savedProfile.profile_image_url
             : uploadedPhoto?.url,
       };
 
       try {
-        const legacyProfile: Record<string, unknown> = {
-          profile_id: normalizedProfile.profile_id,
-          display_name: normalizedProfile.display_name,
-          featured_interest:
-            normalizedProfile.featured_interest,
-          bio: normalizedProfile.bio || "",
-          visibility: "published",
-        };
-
-        if (uploadedPhoto) {
-          legacyProfile.photo_url = uploadedPhoto.url;
-          legacyProfile.photo_name =
-            uploadedPhoto.name || profilePhoto?.name;
-          legacyProfile.photo_type =
-            uploadedPhoto.type || profilePhoto?.type;
-          legacyProfile.photo_size =
-            uploadedPhoto.size || profilePhoto?.size;
-          legacyProfile.photo_count = 1;
-        }
-
-        const legacySaved = await apiRequest(API.profile, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(legacyProfile),
-        });
-
-        const remoteProfile =
-          legacySaved?.profile || legacySaved;
-
-        if (remoteProfile?.profile_id) {
-          Object.assign(normalizedProfile, {
-            ...remoteProfile,
-
-            username:
-              remoteProfile.username ||
-              normalizedProfile.username,
+        const legacyProfile:
+          Record<string, unknown> =
+          {
+            profile_id:
+              normalizedProfile.profile_id,
 
             display_name:
-              remoteProfile.display_name ||
               normalizedProfile.display_name,
 
             featured_interest:
-              remoteProfile.featured_interest ||
               normalizedProfile.featured_interest,
 
             bio:
-              remoteProfile.bio ??
-              normalizedProfile.bio,
+              normalizedProfile.bio ||
+              "",
 
-            photo_url:
-              remoteProfile.photo_url ||
-              normalizedProfile.photo_url,
-          });
+            visibility:
+              "published",
+          };
+
+        if (uploadedPhoto) {
+          legacyProfile.photo_url =
+            uploadedPhoto.url;
+
+          legacyProfile.photo_name =
+            uploadedPhoto.name ||
+            profilePhoto?.name;
+
+          legacyProfile.photo_type =
+            uploadedPhoto.type ||
+            profilePhoto?.type;
+
+          legacyProfile.photo_size =
+            uploadedPhoto.size ||
+            profilePhoto?.size;
+
+          legacyProfile.photo_count =
+            1;
         }
-      } catch (legacyError) {
+
+        const legacySaved =
+          (await apiRequest(
+            API.profile,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify(
+                legacyProfile,
+              ),
+            },
+          )) as LegacyProfileResponse;
+
+        const remoteProfile =
+          legacySaved.profile ||
+          legacySaved;
+
+        if (
+          remoteProfile?.profile_id
+        ) {
+          Object.assign(
+            normalizedProfile,
+            {
+              ...remoteProfile,
+
+              username:
+                remoteProfile.username ||
+                normalizedProfile.username,
+
+              display_name:
+                remoteProfile.display_name ||
+                normalizedProfile.display_name,
+
+              featured_interest:
+                remoteProfile.featured_interest ||
+                normalizedProfile.featured_interest,
+
+              bio:
+                remoteProfile.bio ??
+                normalizedProfile.bio,
+
+              photo_url:
+                remoteProfile.photo_url ||
+                normalizedProfile.photo_url,
+            },
+          );
+        }
+      } catch (
+        legacyError
+      ) {
         console.warn(
           "Legacy profile endpoint was unavailable:",
           legacyError,
         );
       }
 
-      setCurrentProfile(normalizedProfile);
-      setProfileConfirmed(true);
+      setCurrentProfile(
+        normalizedProfile,
+      );
+
+      setProfileConfirmed(
+        true,
+      );
 
       setFormStatus({
         text: "Profile created successfully.",
@@ -881,11 +1806,15 @@ export default function Home() {
 
       showView("profile");
     } catch (error) {
-      console.error("Failed to create profile:", error);
+      console.error(
+        "Failed to create profile:",
+        error,
+      );
 
       const message =
         error instanceof Error &&
-        error.message !== "backend_unavailable"
+        error.message !==
+          "backend_unavailable"
           ? error.message
           : "Your profile could not be saved. Please try again.";
 
@@ -896,268 +1825,400 @@ export default function Home() {
     }
   };
 
-  const beginProfileEdit = () => {
-    if (!currentProfile) return;
+  const beginProfileEdit =
+    () => {
+      if (!currentProfile)
+        return;
 
-    setEditFullName(currentProfile.display_name || "");
-    setEditUsername(currentProfile.username || "");
-    setEditBio(currentProfile.bio || "");
-    setEditLocation(currentProfile.location || "");
+      setEditFullName(
+        currentProfile.display_name ||
+          "",
+      );
 
-    const existingInterests = currentProfile.featured_interest
-      ? currentProfile.featured_interest
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean)
-      : [];
+      setEditUsername(
+        currentProfile.username ||
+          "",
+      );
 
-    const knownInterests = existingInterests.filter((interest) =>
-      FEATURED_INTERESTS.includes(interest),
-    );
+      setEditBio(
+        currentProfile.bio ||
+          "",
+      );
 
-    const customInterests = existingInterests.filter(
-      (interest) => !FEATURED_INTERESTS.includes(interest),
-    );
+      setEditLocation(
+        currentProfile.location ||
+          "",
+      );
 
-    setEditInterests(knownInterests);
-    setEditCustomInterest(customInterests.join(", "));
+      const existingInterests =
+        currentProfile.featured_interest
+          ? currentProfile.featured_interest
+              .split(",")
+              .map((item) =>
+                item.trim(),
+              )
+              .filter(Boolean)
+          : [];
 
-    setEditProfilePhoto(null);
+      const knownInterests =
+        existingInterests.filter(
+          (interest) =>
+            FEATURED_INTERESTS.includes(
+              interest,
+            ),
+        );
 
-    if (editProfilePhotoUrl) {
-      URL.revokeObjectURL(editProfilePhotoUrl);
-    }
+      const customInterests =
+        existingInterests.filter(
+          (interest) =>
+            !FEATURED_INTERESTS.includes(
+              interest,
+            ),
+        );
 
-    setEditProfilePhotoUrl(null);
-    setEditProfileStatus(null);
-    setEditingProfile(true);
-  };
+      setEditInterests(
+        knownInterests,
+      );
 
-  const saveEditedProfile = async () => {
-    if (!currentProfile) return;
+      setEditCustomInterest(
+        customInterests.join(
+          ", ",
+        ),
+      );
 
-    const fullName = editFullName.trim();
-    const username = editUsername.trim();
-    const bio = editBio.trim();
-    const location = editLocation.trim();
+      setEditProfilePhoto(
+        null,
+      );
 
-    const combinedInterests = [
-      ...editInterests,
-      ...(editCustomInterest.trim()
-        ? editCustomInterest
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean)
-        : []),
-    ];
-
-    const uniqueInterests = Array.from(
-      new Set(combinedInterests),
-    );
-
-    if (!fullName) {
-      setEditProfileStatus({
-        text: "Please enter your display name.",
-        type: "error",
-      });
-
-      return;
-    }
-
-    if (!username) {
-      setEditProfileStatus({
-        text: "Please enter your username.",
-        type: "error",
-      });
-
-      return;
-    }
-
-    if (!uniqueInterests.length) {
-      setEditProfileStatus({
-        text: "Choose at least one featured interest.",
-        type: "error",
-      });
-
-      return;
-    }
-
-    setEditProfileSaving(true);
-    setEditProfileStatus({
-      text: "Saving your profile...",
-      type: "info",
-    });
-
-    try {
-      let uploadedPhoto: UploadedProfilePhoto | null = null;
-
-      if (editProfilePhoto) {
-        uploadedPhoto =
-          await uploadProfileImage(editProfilePhoto);
-      }
-
-      const savedProfile =
-        await updateSupabaseProfile({
-          username,
-          fullName,
-          bio,
-          location,
-          ...(uploadedPhoto?.url
-            ? {
-                profileImageUrl:
-                  uploadedPhoto.url,
-              }
-            : {}),
-        });
-
-      const featuredInterest =
-        uniqueInterests.join(", ");
-
-      const updatedProfile: Profile = {
-        ...currentProfile,
-
-        profile_id: savedProfile.id,
-
-        username:
-          typeof savedProfile.username === "string"
-            ? savedProfile.username
-            : username,
-
-        display_name:
-          typeof savedProfile.full_name === "string"
-            ? savedProfile.full_name
-            : fullName,
-
-        featured_interest: featuredInterest,
-
-        bio:
-          typeof savedProfile.bio === "string"
-            ? savedProfile.bio
-            : bio,
-
-        location:
-          typeof savedProfile.location === "string"
-            ? savedProfile.location
-            : location,
-
-        photo_url:
-          typeof savedProfile.profile_image_url === "string"
-            ? savedProfile.profile_image_url
-            : uploadedPhoto?.url ||
-              currentProfile.photo_url,
-
-        visibility:
-          currentProfile.visibility || "published",
-
-        allows_messages:
-          currentProfile.allows_messages ?? true,
-      };
-
-      try {
-        const legacySaved = await apiRequest(API.profile, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            profile_id: updatedProfile.profile_id,
-            display_name: updatedProfile.display_name,
-            featured_interest:
-              updatedProfile.featured_interest,
-            bio: updatedProfile.bio || "",
-            location: updatedProfile.location || "",
-            visibility:
-              updatedProfile.visibility || "published",
-            ...(updatedProfile.photo_url
-              ? {
-                  photo_url:
-                    updatedProfile.photo_url,
-                }
-              : {}),
-          }),
-        });
-
-        const remoteProfile =
-          legacySaved?.profile || legacySaved;
-
-        if (remoteProfile?.profile_id) {
-          Object.assign(updatedProfile, {
-            ...remoteProfile,
-
-            profile_id:
-              remoteProfile.profile_id ||
-              updatedProfile.profile_id,
-
-            username:
-              remoteProfile.username ||
-              updatedProfile.username,
-
-            display_name:
-              remoteProfile.display_name ||
-              updatedProfile.display_name,
-
-            featured_interest:
-              remoteProfile.featured_interest ||
-              updatedProfile.featured_interest,
-
-            bio:
-              remoteProfile.bio ??
-              updatedProfile.bio,
-
-            location:
-              remoteProfile.location ??
-              updatedProfile.location,
-
-            visibility:
-              remoteProfile.visibility ||
-              updatedProfile.visibility,
-
-            photo_url:
-              remoteProfile.photo_url ||
-              updatedProfile.photo_url,
-          });
-        }
-      } catch (legacyError) {
-        console.warn(
-          "Legacy profile endpoint was unavailable while saving edited profile:",
-          legacyError,
+      if (editProfilePhotoUrl) {
+        URL.revokeObjectURL(
+          editProfilePhotoUrl,
         );
       }
 
-      setCurrentProfile(updatedProfile);
+      setEditProfilePhotoUrl(
+        null,
+      );
 
-      setEditProfileStatus({
-        text: "Profile updated successfully.",
-        type: "success",
-      });
+      setEditProfileStatus(
+        null,
+      );
 
-      setEditingProfile(false);
-      setEditProfilePhoto(null);
+      setEditingProfile(
+        true,
+      );
+    };
 
-      if (editProfilePhotoUrl) {
-        URL.revokeObjectURL(editProfilePhotoUrl);
-        setEditProfilePhotoUrl(null);
+  const saveEditedProfile =
+    async () => {
+      if (!currentProfile)
+        return;
+
+      const fullName =
+        editFullName.trim();
+
+      const username =
+        editUsername.trim();
+
+      const bio =
+        editBio.trim();
+
+      const location =
+        editLocation.trim();
+
+      const combinedInterests =
+        [
+          ...editInterests,
+
+          ...(editCustomInterest.trim()
+            ? editCustomInterest
+                .split(",")
+                .map((item) =>
+                  item.trim(),
+                )
+                .filter(Boolean)
+            : []),
+        ];
+
+      const uniqueInterests =
+        Array.from(
+          new Set(
+            combinedInterests,
+          ),
+        );
+
+      if (!fullName) {
+        setEditProfileStatus({
+          text: "Please enter your display name.",
+          type: "error",
+        });
+
+        return;
       }
 
-      await loadRemoteProfiles();
-    } catch (error) {
-      console.error(
-        "Failed to update profile:",
-        error,
+      if (!username) {
+        setEditProfileStatus({
+          text: "Please enter your username.",
+          type: "error",
+        });
+
+        return;
+      }
+
+      if (
+        !uniqueInterests.length
+      ) {
+        setEditProfileStatus({
+          text: "Choose at least one featured interest.",
+          type: "error",
+        });
+
+        return;
+      }
+
+      setEditProfileSaving(
+        true,
       );
 
       setEditProfileStatus({
-        text:
-          error instanceof Error &&
-          error.message !== "backend_unavailable"
-            ? error.message
-            : "Your profile could not be updated. Please try again.",
-        type: "error",
+        text: "Saving your profile...",
+        type: "info",
       });
-    } finally {
-      setEditProfileSaving(false);
-    }
-  };
+
+      try {
+        let uploadedPhoto:
+          | UploadedProfilePhoto
+          | null = null;
+
+        if (
+          editProfilePhoto
+        ) {
+          uploadedPhoto =
+            await uploadProfileImage(
+              editProfilePhoto,
+            );
+        }
+
+        const savedProfile =
+          await updateSupabaseProfile(
+            {
+              username,
+              fullName,
+              bio,
+              location,
+
+              ...(uploadedPhoto?.url
+                ? {
+                    profileImageUrl:
+                      uploadedPhoto.url,
+                  }
+                : {}),
+            },
+          );
+
+        const featuredInterest =
+          uniqueInterests.join(
+            ", ",
+          );
+
+        const updatedProfile:
+          Profile = {
+          ...currentProfile,
+
+          profile_id:
+            savedProfile.id,
+
+          username:
+            typeof savedProfile.username ===
+            "string"
+              ? savedProfile.username
+              : username,
+
+          display_name:
+            typeof savedProfile.full_name ===
+            "string"
+              ? savedProfile.full_name
+              : fullName,
+
+          featured_interest:
+            featuredInterest,
+
+          bio:
+            typeof savedProfile.bio ===
+            "string"
+              ? savedProfile.bio
+              : bio,
+
+          location:
+            typeof savedProfile.location ===
+            "string"
+              ? savedProfile.location
+              : location,
+
+          photo_url:
+            typeof savedProfile.profile_image_url ===
+            "string"
+              ? savedProfile.profile_image_url
+              : uploadedPhoto?.url ||
+                currentProfile.photo_url,
+
+          visibility:
+            currentProfile.visibility ||
+            "published",
+
+          allows_messages:
+            currentProfile.allows_messages ??
+            true,
+        };
+
+        try {
+          const legacySaved =
+            (await apiRequest(
+              API.profile,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  profile_id:
+                    updatedProfile.profile_id,
+
+                  display_name:
+                    updatedProfile.display_name,
+
+                  featured_interest:
+                    updatedProfile.featured_interest,
+
+                  bio:
+                    updatedProfile.bio ||
+                    "",
+
+                  location:
+                    updatedProfile.location ||
+                    "",
+
+                  visibility:
+                    updatedProfile.visibility ||
+                    "published",
+
+                  ...(updatedProfile.photo_url
+                    ? {
+                        photo_url:
+                          updatedProfile.photo_url,
+                      }
+                    : {}),
+                }),
+              },
+            )) as LegacyProfileResponse;
+
+          const remoteProfile =
+            legacySaved.profile ||
+            legacySaved;
+
+          if (
+            remoteProfile?.profile_id
+          ) {
+            Object.assign(
+              updatedProfile,
+              {
+                ...remoteProfile,
+
+                profile_id:
+                  remoteProfile.profile_id ||
+                  updatedProfile.profile_id,
+
+                username:
+                  remoteProfile.username ||
+                  updatedProfile.username,
+
+                display_name:
+                  remoteProfile.display_name ||
+                  updatedProfile.display_name,
+
+                featured_interest:
+                  remoteProfile.featured_interest ||
+                  updatedProfile.featured_interest,
+
+                bio:
+                  remoteProfile.bio ??
+                  updatedProfile.bio,
+
+                location:
+                  remoteProfile.location ??
+                  updatedProfile.location,
+
+                visibility:
+                  remoteProfile.visibility ||
+                  updatedProfile.visibility,
+
+                photo_url:
+                  remoteProfile.photo_url ||
+                  updatedProfile.photo_url,
+              },
+            );
+          }
+        } catch (
+          legacyError
+        ) {
+          console.warn(
+            "Legacy profile endpoint was unavailable while saving edited profile:",
+            legacyError,
+          );
+        }
+
+        setCurrentProfile(
+          updatedProfile,
+        );
+
+        setEditProfileStatus({
+          text: "Profile updated successfully.",
+          type: "success",
+        });
+
+        setEditingProfile(
+          false,
+        );
+
+        setEditProfilePhoto(
+          null,
+        );
+
+        if (
+          editProfilePhotoUrl
+        ) {
+          URL.revokeObjectURL(
+            editProfilePhotoUrl,
+          );
+
+          setEditProfilePhotoUrl(
+            null,
+          );
+        }
+
+        await loadRemoteProfiles();
+      } catch (error) {
+        console.error(
+          "Failed to update profile:",
+          error,
+        );
+
+        setEditProfileStatus({
+          text:
+            error instanceof Error &&
+            error.message !==
+              "backend_unavailable"
+              ? error.message
+              : "Your profile could not be updated. Please try again.",
+          type: "error",
+        });
+      } finally {
+        setEditProfileSaving(
+          false,
+        );
+      }
+    };
 
   const sendMessage = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -1165,7 +2226,8 @@ export default function Home() {
     event.preventDefault();
 
     if (
-      (!messageText.trim() && !messageAsset) ||
+      (!messageText.trim() &&
+        !messageAsset) ||
       !activeMessageProfile
     ) {
       setStatus(
@@ -1177,129 +2239,202 @@ export default function Home() {
       return;
     }
 
-    setMessageSending(true);
+    const activeRelationship =
+      friendRequestStates[
+        activeMessageProfile.profile_id
+      ];
+
+    if (
+      activeRelationship?.status !==
+      "accepted"
+    ) {
+      setMessageStatus({
+        text: "You can only message accepted friends.",
+        type: "error",
+      });
+
+      return;
+    }
+
+    setMessageSending(
+      true,
+    );
 
     try {
       if (!backendConnected) {
-        throw new Error("offline");
+        throw new Error(
+          "Your session is not connected to the backend.",
+        );
       }
 
-      let asset: MessageAsset | null = null;
+      let asset:
+        | MessageAsset
+        | null = null;
 
       if (messageAsset) {
-        asset = await new Promise<MessageAsset>(
-          (resolve, reject) => {
-            const request = new XMLHttpRequest();
+        asset =
+          await new Promise<MessageAsset>(
+            (
+              resolve,
+              reject,
+            ) => {
+              const request =
+                new XMLHttpRequest();
 
-            request.open(
-              "POST",
-              "/api/message-assets",
-            );
+              request.open(
+                "POST",
+                "/api/message-assets",
+              );
 
-            request.withCredentials = true;
+              request.withCredentials =
+                true;
 
-            request.setRequestHeader(
-              "Accept",
-              "application/json",
-            );
+              request.setRequestHeader(
+                "Accept",
+                "application/json",
+              );
 
-            request.upload.onprogress = (event) => {
-              if (event.lengthComputable) {
-                setMessageStatus({
-                  text: `Uploading ${Math.round(
-                    (event.loaded / event.total) * 100,
-                  )}%`,
-                  type: "info",
-                });
-              }
-            };
+              request.upload.onprogress =
+                (event) => {
+                  if (
+                    event.lengthComputable
+                  ) {
+                    setMessageStatus(
+                      {
+                        text: `Uploading ${Math.round(
+                          (event.loaded /
+                            event.total) *
+                            100,
+                        )}%`,
+                        type: "info",
+                      },
+                    );
+                  }
+                };
 
-            request.onload = () => {
-              if (
-                request.status >= 200 &&
-                request.status < 300
-              ) {
-                try {
-                  resolve(
-                    JSON.parse(
-                      request.responseText || "{}",
-                    ),
-                  );
-                } catch {
+              request.onload =
+                () => {
+                  if (
+                    request.status >=
+                      200 &&
+                    request.status < 300
+                  ) {
+                    try {
+                      resolve(
+                        JSON.parse(
+                          request.responseText ||
+                            "{}",
+                        ) as MessageAsset,
+                      );
+                    } catch {
+                      reject(
+                        new Error(
+                          "upload_failed",
+                        ),
+                      );
+                    }
+                  } else {
+                    reject(
+                      new Error(
+                        "upload_failed",
+                      ),
+                    );
+                  }
+                };
+
+              request.onerror =
+                () =>
                   reject(
                     new Error(
                       "upload_failed",
                     ),
                   );
-                }
-              } else {
-                reject(
-                  new Error(
-                    "upload_failed",
-                  ),
-                );
-              }
-            };
 
-            request.onerror = () =>
-              reject(
-                new Error(
-                  "upload_failed",
-                ),
+              const body =
+                new FormData();
+
+              body.append(
+                "file",
+                messageAsset,
               );
 
-            const body = new FormData();
+              body.append(
+                "profile_id",
+                activeMessageProfile.profile_id,
+              );
 
-            body.append(
-              "file",
-              messageAsset,
-            );
-
-            body.append(
-              "profile_id",
-              activeMessageProfile.profile_id,
-            );
-
-            request.send(body);
-          },
-        );
+              request.send(
+                body,
+              );
+            },
+          );
       }
 
-      await apiRequest(API.messages, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      await apiRequest(
+        API.messages,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            profile_id:
+              activeMessageProfile.profile_id,
+
+            text:
+              messageText.trim(),
+
+            message_asset_url:
+              asset?.url,
+
+            message_asset_name:
+              asset?.name,
+
+            message_asset_type:
+              asset?.type,
+
+            message_asset_size:
+              asset?.size,
+          }),
         },
-        body: JSON.stringify({
-          profile_id:
-            activeMessageProfile.profile_id,
-          text: messageText.trim(),
-          message_asset_url: asset?.url,
-          message_asset_name: asset?.name,
-          message_asset_type: asset?.type,
-          message_asset_size: asset?.size,
-        }),
-      });
+      );
 
       setMessageText("");
-      setMessageAsset(null);
+      setMessageAsset(
+        null,
+      );
+
       setMessageCount(0);
 
-      if (messageFileInput.current) {
-        messageFileInput.current.value = "";
+      if (
+        messageFileInput.current
+      ) {
+        messageFileInput.current.value =
+          "";
       }
 
       setMessageStatus({
         text: "Message sent.",
         type: "success",
       });
-    } catch {
+    } catch (error) {
+      console.error(
+        "Failed to send message:",
+        error,
+      );
+
       setMessageStatus({
-        text: "Your message or attachment could not be sent. Nothing was shared.",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Your message or attachment could not be sent. Nothing was shared.",
         type: "error",
       });
     } finally {
-      setMessageSending(false);
+      setMessageSending(
+        false,
+      );
     }
   };
 
@@ -1310,135 +2445,242 @@ export default function Home() {
 
     try {
       if (!backendConnected) {
-        throw new Error("backend_unavailable");
+        throw new Error(
+          "backend_unavailable",
+        );
       }
 
-      await apiRequest(API.settings, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
+      await apiRequest(
+        API.settings,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            visibility:
+              settings.visibility,
+
+            profile_interest_display:
+              settings.interestDisplay
+                ? "shown"
+                : "hidden",
+
+            message_permission:
+              settings.messagePermission,
+
+            last_seen_visibility:
+              settings.lastSeenVisibility,
+
+            friend_request_notifications:
+              settings.friendNotifications,
+
+            message_notifications:
+              settings.messageNotifications,
+          }),
         },
-        body: JSON.stringify({
-          visibility: settings.visibility,
-          profile_interest_display:
-            settings.interestDisplay
-              ? "shown"
-              : "hidden",
-          message_permission:
-            settings.messagePermission,
-          last_seen_visibility:
-            settings.lastSeenVisibility,
-          friend_request_notifications:
-            settings.friendNotifications,
-          message_notifications:
-            settings.messageNotifications,
-        }),
-      });
+      );
 
       setSettingsStatus({
         text: "Settings saved.",
         type: "success",
       });
-    } catch {
-      setSettingsStatus({
-        text: "Settings could not be saved remotely. Your current choices remain on this device.",
-        type: "error",
-      });
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        throw error;
-      }
-
-      setCurrentProfile(null);
-      setProfileConfirmed(false);
-      setPositiveSelections([]);
-      setPairQueue([]);
-      setPairIndex(0);
-      setCompletionProfile(null);
-      setActiveMessageProfile(null);
-      setMessageOpen(false);
-      setEditingProfile(false);
-      setView("discover");
-    } catch {
-      setSettingsStatus({
-        text: "Sign out could not be completed.",
-        type: "error",
-      });
-    }
-  };
-
-  const deleteAccount = async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        throw new Error("Your session has expired.");
-      }
-
-      const response = await fetch(
-        "/api/account/delete",
-        {
-          method: "DELETE",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        },
-      );
-
-      if (!response.ok) {
-        let message =
-          "Your account could not be deleted.";
-
-        try {
-          const data = await response.json();
-
-          if (typeof data?.error === "string") {
-            message = data.error;
-          }
-        } catch {
-          // Ignore invalid JSON error responses.
-        }
-
-        throw new Error(message);
-      }
-
-      await supabase.auth.signOut();
-
-      setCurrentProfile(null);
-      setProfileConfirmed(false);
-      setPositiveSelections([]);
-      setPairQueue([]);
-      setPairIndex(0);
-      setCompletionProfile(null);
-      setActiveMessageProfile(null);
-      setMessageOpen(false);
-      setEditingProfile(false);
-      setProfiles([]);
-      setView("discover");
     } catch (error) {
       console.error(
-        "Failed to delete account:",
+        "Failed to save settings:",
         error,
       );
 
       setSettingsStatus({
         text:
-          error instanceof Error
+          error instanceof Error &&
+          error.message !==
+            "backend_unavailable"
             ? error.message
-            : "Your account could not be deleted. Please try again.",
+            : "Settings could not be saved remotely. Your current choices remain on this device.",
         type: "error",
       });
     }
   };
+
+  const signOut =
+    async () => {
+      try {
+        const { error } =
+          await supabase.auth.signOut();
+
+        if (error) {
+          throw error;
+        }
+
+        setCurrentProfile(
+          null,
+        );
+
+        setProfileConfirmed(
+          false,
+        );
+
+        setPositiveSelections(
+          [],
+        );
+
+        setPairQueue([]);
+
+        setPairIndex(0);
+
+        setCompletionProfile(
+          null,
+        );
+
+        setFriendRequestStates(
+          {},
+        );
+
+        setActiveMessageProfile(
+          null,
+        );
+
+        setMessageOpen(
+          false,
+        );
+
+        setEditingProfile(
+          false,
+        );
+
+        setProfiles([]);
+
+        setView("discover");
+      } catch (error) {
+        console.error(
+          "Failed to sign out:",
+          error,
+        );
+
+        setSettingsStatus({
+          text:
+            error instanceof Error
+              ? error.message
+              : "Sign out could not be completed.",
+          type: "error",
+        });
+      }
+    };
+
+  const deleteAccount =
+    async () => {
+      try {
+        const {
+          data: { session },
+        } =
+          await supabase.auth.getSession();
+
+        if (
+          !session?.access_token
+        ) {
+          throw new Error(
+            "Your session has expired.",
+          );
+        }
+
+        const response =
+          await fetch(
+            "/api/account/delete",
+            {
+              method: "DELETE",
+              headers: {
+                Accept:
+                  "application/json",
+
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            },
+          );
+
+        if (!response.ok) {
+          let message =
+            "Your account could not be deleted.";
+
+          try {
+            const data =
+              (await response.json()) as {
+                error?: unknown;
+              };
+
+            if (
+              typeof data.error ===
+              "string"
+            ) {
+              message =
+                data.error;
+            }
+          } catch {
+            // Ignore invalid JSON error responses.
+          }
+
+          throw new Error(
+            message,
+          );
+        }
+
+        await supabase.auth.signOut();
+
+        setCurrentProfile(
+          null,
+        );
+
+        setProfileConfirmed(
+          false,
+        );
+
+        setPositiveSelections(
+          [],
+        );
+
+        setPairQueue([]);
+
+        setPairIndex(0);
+
+        setCompletionProfile(
+          null,
+        );
+
+        setFriendRequestStates(
+          {},
+        );
+
+        setActiveMessageProfile(
+          null,
+        );
+
+        setMessageOpen(
+          false,
+        );
+
+        setEditingProfile(
+          false,
+        );
+
+        setProfiles([]);
+
+        setView("discover");
+      } catch (error) {
+        console.error(
+          "Failed to delete account:",
+          error,
+        );
+
+        setSettingsStatus({
+          text:
+            error instanceof Error
+              ? error.message
+              : "Your account could not be deleted. Please try again.",
+          type: "error",
+        });
+      }
+    };
 
   const openConfirmation = (
     title: string,
@@ -1452,41 +2694,62 @@ export default function Home() {
     });
   };
 
-  const progressTotal = pairQueue.length;
+  const progressTotal =
+    pairQueue.length;
 
   const progressCurrent =
     progressTotal > 0
-      ? Math.min(pairIndex + 1, progressTotal)
+      ? Math.min(
+          pairIndex + 1,
+          progressTotal,
+        )
       : 0;
 
   const progressPercent =
     progressTotal > 0
-      ? (Math.min(pairIndex, progressTotal) /
+      ? (Math.min(
+          pairIndex,
+          progressTotal,
+        ) /
           progressTotal) *
         100
       : 0;
 
-  const visibleProfilesCount = availableProfiles.length;
+  const visibleProfilesCount =
+    availableProfiles.length;
 
   if (authLoading) {
     return (
       <main className="auth-shell">
         <section className="auth-card">
           <div className="auth-brand">
-            <div className="auth-brand-mark">m</div>
+            <div className="auth-brand-mark">
+              m
+            </div>
 
             <div>
-              <strong>myFolks</strong>
-              <span>Find common ground</span>
+              <strong>
+                myFolks
+              </strong>
+
+              <span>
+                Find common ground
+              </span>
             </div>
           </div>
 
           <div className="auth-heading">
-            <p className="eyebrow">myFolks</p>
+            <p className="eyebrow">
+              myFolks
+            </p>
 
-            <h1>Getting things ready.</h1>
+            <h1>
+              Getting things ready.
+            </h1>
 
-            <p>Just a moment.</p>
+            <p>
+              Just a moment.
+            </p>
           </div>
         </section>
       </main>
@@ -1505,12 +2768,20 @@ export default function Home() {
             <button
               type="button"
               className="brand-button focus-ring"
-              onClick={() => showView("discover")}
+              onClick={() =>
+                showView(
+                  "discover",
+                )
+              }
             >
-              <div className="brand-mark">m</div>
+              <div className="brand-mark">
+                m
+              </div>
 
               <span>
-                <span className="wordmark">myFolks</span>
+                <span className="wordmark">
+                  myFolks
+                </span>
 
                 <span className="tagline">
                   Find common ground
@@ -1522,9 +2793,13 @@ export default function Home() {
               type="button"
               className="mobile-menu-toggle focus-ring"
               onClick={() =>
-                setMobileMenuOpen((value) => !value)
+                setMobileMenuOpen(
+                  (value) => !value,
+                )
               }
-              aria-expanded={mobileMenuOpen}
+              aria-expanded={
+                mobileMenuOpen
+              }
               aria-label={
                 mobileMenuOpen
                   ? "Close navigation"
@@ -1532,34 +2807,60 @@ export default function Home() {
               }
             >
               <Icon
-                name={mobileMenuOpen ? "x" : "menu"}
+                name={
+                  mobileMenuOpen
+                    ? "x"
+                    : "menu"
+                }
                 size={22}
               />
             </button>
 
             <nav
               className={`primary-nav ${
-                mobileMenuOpen ? "is-open" : ""
+                mobileMenuOpen
+                  ? "is-open"
+                  : ""
               }`}
             >
               <NavButton
-                active={view === "discover"}
-                onClick={() => showView("discover")}
+                active={
+                  view ===
+                  "discover"
+                }
+                onClick={() =>
+                  showView(
+                    "discover",
+                  )
+                }
               >
                 Discover
               </NavButton>
 
               <NavButton
-                active={view === "friends"}
-                onClick={() => showView("friends")}
+                active={
+                  view === "friends"
+                }
+                onClick={() =>
+                  showView(
+                    "friends",
+                  )
+                }
               >
                 Friends
               </NavButton>
 
               {profileConfirmed && (
                 <NavButton
-                  active={view === "messages"}
-                  onClick={() => showView("messages")}
+                  active={
+                    view ===
+                    "messages"
+                  }
+                  onClick={() =>
+                    showView(
+                      "messages",
+                    )
+                  }
                 >
                   Messages
                 </NavButton>
@@ -1567,8 +2868,15 @@ export default function Home() {
 
               {!profileConfirmed && (
                 <NavButton
-                  active={view === "create"}
-                  onClick={() => showView("create")}
+                  active={
+                    view ===
+                    "create"
+                  }
+                  onClick={() =>
+                    showView(
+                      "create",
+                    )
+                  }
                 >
                   Create profile
                 </NavButton>
@@ -1577,15 +2885,29 @@ export default function Home() {
               {profileConfirmed && (
                 <>
                   <NavButton
-                    active={view === "profile"}
-                    onClick={() => showView("profile")}
+                    active={
+                      view ===
+                      "profile"
+                    }
+                    onClick={() =>
+                      showView(
+                        "profile",
+                      )
+                    }
                   >
                     My profile
                   </NavButton>
 
                   <NavButton
-                    active={view === "settings"}
-                    onClick={() => showView("settings")}
+                    active={
+                      view ===
+                      "settings"
+                    }
+                    onClick={() =>
+                      showView(
+                        "settings",
+                      )
+                    }
                   >
                     Settings
                   </NavButton>
@@ -1595,8 +2917,12 @@ export default function Home() {
               <button
                 type="button"
                 className="theme-toggle focus-ring"
-                onClick={toggleTheme}
-                disabled={themeAnimating}
+                onClick={
+                  toggleTheme
+                }
+                disabled={
+                  themeAnimating
+                }
                 aria-label={
                   darkMode
                     ? "Switch to light mode"
@@ -1609,7 +2935,11 @@ export default function Home() {
                 }
               >
                 <Icon
-                  name={darkMode ? "sun" : "moon"}
+                  name={
+                    darkMode
+                      ? "sun"
+                      : "moon"
+                  }
                   size={18}
                   strokeWidth={2}
                 />
@@ -1619,182 +2949,393 @@ export default function Home() {
         </header>
 
         <main className="main-content">
-          {view === "discover" && (
+          {view ===
+            "discover" && (
             <DiscoverView
-              profiles={profiles}
-              currentPair={currentPair}
-              discoverState={discoverState}
-              progressCurrent={progressCurrent}
-              progressTotal={progressTotal}
-              progressPercent={progressPercent}
-              positiveSelections={positiveSelections}
-              visibleProfilesCount={visibleProfilesCount}
-              notice={discoverNotice}
-              onChoose={chooseInterest}
-              onSkip={skipPair}
-              onReport={reportProfile}
-              onBlock={(profile) =>
+              profiles={
+                profiles
+              }
+              currentPair={
+                currentPair
+              }
+              discoverState={
+                discoverState
+              }
+              progressCurrent={
+                progressCurrent
+              }
+              progressTotal={
+                progressTotal
+              }
+              progressPercent={
+                progressPercent
+              }
+              positiveSelections={
+                positiveSelections
+              }
+              visibleProfilesCount={
+                visibleProfilesCount
+              }
+              notice={
+                discoverNotice
+              }
+              onChoose={
+                chooseInterest
+              }
+              onSkip={
+                skipPair
+              }
+              onReport={
+                reportProfile
+              }
+              onBlock={(
+                profile,
+              ) =>
                 openConfirmation(
                   "Block this person?",
                   "They will no longer appear in your discovery session.",
-                  () => blockProfile(profile),
+                  () =>
+                    blockProfile(
+                      profile,
+                    ),
                 )
               }
-              onRetry={loadRemoteProfiles}
+              onRetry={
+                loadRemoteProfiles
+              }
             />
           )}
 
-          {view === "friends" && (
+          {view ===
+            "friends" && (
             <FriendsView
-              friends={friends}
-              search={friendSearch}
-              onSearch={setFriendSearch}
-              onOpenMessage={openSelectedMessage}
+              friends={
+                friends
+              }
+              search={
+                friendSearch
+              }
+              onSearch={
+                setFriendSearch
+              }
+              onOpenMessage={
+                openSelectedMessage
+              }
             />
           )}
 
-          {view === "messages" && (
+          {view ===
+            "messages" && (
             <MessagesView
-              friends={friends}
-              activeProfile={activeMessageProfile}
-              mobileOpen={messageOpen}
-              messageText={messageText}
-              messageAsset={messageAsset}
-              messageStatus={messageStatus}
-              messageSending={messageSending}
-              messageCount={messageCount}
-              fileInputRef={messageFileInput}
-              onSelect={(profile) => {
-                setActiveMessageProfile(profile);
-                setMessageOpen(true);
-              }}
-              onBack={() => setMessageOpen(false)}
-              onTextChange={(value) => {
-                setMessageText(value);
-                setMessageCount(value.length);
-              }}
-              onFile={(file) => {
-                if (!file) return;
-
-                const allowed =
-                  file.type.startsWith("image/") ||
-                  [
-                    "application/pdf",
-                    "text/plain",
-                    "application/msword",
-                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                  ].includes(file.type);
+              friends={
+                friends
+              }
+              activeProfile={
+                activeMessageProfile
+              }
+              mobileOpen={
+                messageOpen
+              }
+              messageText={
+                messageText
+              }
+              messageAsset={
+                messageAsset
+              }
+              messageStatus={
+                messageStatus
+              }
+              messageSending={
+                messageSending
+              }
+              messageCount={
+                messageCount
+              }
+              fileInputRef={
+                messageFileInput
+              }
+              onSelect={(
+                profile,
+              ) => {
+                const relationship =
+                  friendRequestStates[
+                    profile.profile_id
+                  ];
 
                 if (
-                  !allowed ||
-                  file.size > MAX_MESSAGE_ASSET_SIZE
+                  relationship?.status !==
+                  "accepted"
                 ) {
                   setMessageStatus({
-                    text: "Choose an image or document up to 10 MB.",
+                    text: "You can only message accepted friends.",
                     type: "error",
                   });
 
                   return;
                 }
 
-                setMessageAsset(file);
-                setMessageStatus(null);
+                setActiveMessageProfile(
+                  profile,
+                );
+
+                setMessageOpen(
+                  true,
+                );
+              }}
+              onBack={() =>
+                setMessageOpen(
+                  false,
+                )
+              }
+              onTextChange={(
+                value,
+              ) => {
+                setMessageText(
+                  value,
+                );
+
+                setMessageCount(
+                  value.length,
+                );
+              }}
+              onFile={(
+                file,
+              ) => {
+                if (!file)
+                  return;
+
+                const allowed =
+                  file.type.startsWith(
+                    "image/",
+                  ) ||
+                  [
+                    "application/pdf",
+                    "text/plain",
+                    "application/msword",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                  ].includes(
+                    file.type,
+                  );
+
+                if (
+                  !allowed ||
+                  file.size >
+                    MAX_MESSAGE_ASSET_SIZE
+                ) {
+                  setMessageStatus(
+                    {
+                      text: "Choose an image or document up to 10 MB.",
+                      type: "error",
+                    },
+                  );
+
+                  return;
+                }
+
+                setMessageAsset(
+                  file,
+                );
+
+                setMessageStatus(
+                  null,
+                );
               }}
               onRemoveAsset={() => {
-                setMessageAsset(null);
+                setMessageAsset(
+                  null,
+                );
 
-                if (messageFileInput.current) {
-                  messageFileInput.current.value = "";
+                if (
+                  messageFileInput.current
+                ) {
+                  messageFileInput.current.value =
+                    "";
                 }
               }}
-              onSend={sendMessage}
+              onSend={
+                sendMessage
+              }
             />
           )}
 
-          {view === "create" && (
+          {view ===
+            "create" && (
             <CreateProfileView
-              profilePhoto={profilePhoto}
-              profilePhotoUrl={profilePhotoUrl}
-              status={profileStatus}
-              formStatus={formStatus}
-              onPhoto={chooseProfilePhoto}
+              profilePhoto={
+                profilePhoto
+              }
+              profilePhotoUrl={
+                profilePhotoUrl
+              }
+              status={
+                profileStatus
+              }
+              formStatus={
+                formStatus
+              }
+              onPhoto={
+                chooseProfilePhoto
+              }
               onRemovePhoto={() => {
-                if (profilePhotoUrl) {
-                  URL.revokeObjectURL(profilePhotoUrl);
+                if (
+                  profilePhotoUrl
+                ) {
+                  URL.revokeObjectURL(
+                    profilePhotoUrl,
+                  );
                 }
 
-                setProfilePhoto(null);
-                setProfilePhotoUrl(null);
+                setProfilePhoto(
+                  null,
+                );
 
-                setProfileStatus({
-                  text: "Profile photo removed. Choose another photo when ready.",
-                  type: "info",
-                });
+                setProfilePhotoUrl(
+                  null,
+                );
+
+                setProfileStatus(
+                  {
+                    text: "Profile photo removed. Choose another photo when ready.",
+                    type: "info",
+                  },
+                );
               }}
-              onSubmit={createProfile}
+              onSubmit={
+                createProfile
+              }
             />
           )}
 
-          {view === "profile" && (
+          {view ===
+            "profile" && (
             <ProfileView
-              profile={currentProfile}
-              editing={editingProfile}
-              editFullName={editFullName}
-              editUsername={editUsername}
-              editBio={editBio}
-              editLocation={editLocation}
-              editInterests={editInterests}
-              editCustomInterest={editCustomInterest}
-              editProfilePhotoUrl={editProfilePhotoUrl}
-              editProfileStatus={editProfileStatus}
-              editProfileSaving={editProfileSaving}
-              onStartEdit={beginProfileEdit}
+              profile={
+                currentProfile
+              }
+              editing={
+                editingProfile
+              }
+              editFullName={
+                editFullName
+              }
+              editUsername={
+                editUsername
+              }
+              editBio={
+                editBio
+              }
+              editLocation={
+                editLocation
+              }
+              editInterests={
+                editInterests
+              }
+              editCustomInterest={
+                editCustomInterest
+              }
+              editProfilePhotoUrl={
+                editProfilePhotoUrl
+              }
+              editProfileStatus={
+                editProfileStatus
+              }
+              editProfileSaving={
+                editProfileSaving
+              }
+              onStartEdit={
+                beginProfileEdit
+              }
               onCancelEdit={() => {
-                setEditingProfile(false);
-                setEditProfileStatus(null);
-                setEditProfilePhoto(null);
+                setEditingProfile(
+                  false,
+                );
 
-                if (editProfilePhotoUrl) {
+                setEditProfileStatus(
+                  null,
+                );
+
+                setEditProfilePhoto(
+                  null,
+                );
+
+                if (
+                  editProfilePhotoUrl
+                ) {
                   URL.revokeObjectURL(
                     editProfilePhotoUrl,
                   );
                 }
 
-                setEditProfilePhotoUrl(null);
+                setEditProfilePhotoUrl(
+                  null,
+                );
               }}
-              onFullNameChange={setEditFullName}
-              onUsernameChange={setEditUsername}
-              onBioChange={setEditBio}
-              onLocationChange={setEditLocation}
-              onToggleInterest={(interest) => {
-                setEditInterests((previous) =>
-                  previous.includes(interest)
-                    ? previous.filter(
-                        (item) => item !== interest,
-                      )
-                    : [...previous, interest],
+              onFullNameChange={
+                setEditFullName
+              }
+              onUsernameChange={
+                setEditUsername
+              }
+              onBioChange={
+                setEditBio
+              }
+              onLocationChange={
+                setEditLocation
+              }
+              onToggleInterest={(
+                interest,
+              ) => {
+                setEditInterests(
+                  (previous) =>
+                    previous.includes(
+                      interest,
+                    )
+                      ? previous.filter(
+                          (
+                            item,
+                          ) =>
+                            item !==
+                            interest,
+                        )
+                      : [
+                          ...previous,
+                          interest,
+                        ],
                 );
               }}
               onCustomInterestChange={
                 setEditCustomInterest
               }
-              onPhoto={chooseEditProfilePhoto}
+              onPhoto={
+                chooseEditProfilePhoto
+              }
               onRemovePhoto={() => {
-                if (editProfilePhotoUrl) {
+                if (
+                  editProfilePhotoUrl
+                ) {
                   URL.revokeObjectURL(
                     editProfilePhotoUrl,
                   );
                 }
 
-                setEditProfilePhoto(null);
-                setEditProfilePhotoUrl(null);
+                setEditProfilePhoto(
+                  null,
+                );
 
-                setEditProfileStatus({
-                  text: "New profile photo removed.",
-                  type: "info",
-                });
+                setEditProfilePhotoUrl(
+                  null,
+                );
+
+                setEditProfileStatus(
+                  {
+                    text: "New profile photo removed.",
+                    type: "info",
+                  },
+                );
               }}
-              onSave={saveEditedProfile}
+              onSave={
+                saveEditedProfile
+              }
               onSignOut={() =>
                 openConfirmation(
                   "Sign out of myFolks?",
@@ -1805,13 +3346,24 @@ export default function Home() {
             />
           )}
 
-          {view === "settings" && (
+          {view ===
+            "settings" && (
             <SettingsView
-              settings={settings}
-              status={settingsStatus}
-              blockedCount={blockedProfiles.size}
-              onChange={setSettings}
-              onSave={saveSettings}
+              settings={
+                settings
+              }
+              status={
+                settingsStatus
+              }
+              blockedCount={
+                blockedProfiles.size
+              }
+              onChange={
+                setSettings
+              }
+              onSave={
+                saveSettings
+              }
               onDelete={() =>
                 openConfirmation(
                   "Delete your account?",
@@ -1831,39 +3383,104 @@ export default function Home() {
         </main>
 
         <footer className="site-footer">
-          © 2026 All rights reserved by Darien Corporation
+          © 2026 All rights reserved by
+          Darien Corporation
         </footer>
 
         {completionProfile && (
           <div className="modal-backdrop">
             <div className="completion-modal">
               <div className="completion-icon">
-                <Icon name="sparkle" size={28} />
+                <Icon
+                  name="sparkle"
+                  size={28}
+                />
               </div>
 
-              <h2>Perfect match found!</h2>
+              <h2>
+                Perfect match found!
+              </h2>
 
               <p>
-                You completed every available pair and found a
-                person whose interest resonated with yours. You
-                can take a gentle next step, or simply return to
-                Discover.
+                You completed every
+                available pair and
+                found a person whose
+                interest resonated
+                with yours. You can
+                take a gentle next
+                step, or simply return
+                to Discover.
               </p>
 
               <div className="completion-actions">
-                <button
-                  type="button"
-                  className="button primary"
-                  onClick={sendFriendRequest}
-                >
-                  Add to friends
-                </button>
+                {(() => {
+                  const requestState =
+                    friendRequestStates[
+                      completionProfile
+                        .profile_id
+                    ];
+
+                  const requestStatus =
+                    requestState?.status;
+
+                  const isDisabled =
+                    requestStatus ===
+                      "pending" ||
+                    requestStatus ===
+                      "accepted" ||
+                    requestStatus ===
+                      "incoming";
+
+                  let label =
+                    "Add to friends";
+
+                  if (
+                    requestStatus ===
+                    "pending"
+                  ) {
+                    label =
+                      "Request pending";
+                  }
+
+                  if (
+                    requestStatus ===
+                    "accepted"
+                  ) {
+                    label =
+                      "Friends";
+                  }
+
+                  if (
+                    requestStatus ===
+                    "incoming"
+                  ) {
+                    label =
+                      "Request received";
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      className="button primary"
+                      onClick={
+                        sendFriendRequest
+                      }
+                      disabled={
+                        isDisabled
+                      }
+                    >
+                      {label}
+                    </button>
+                  );
+                })()}
 
                 <button
                   type="button"
                   className="button lavender"
                   onClick={() =>
-                    openSelectedMessage(completionProfile)
+                    openSelectedMessage(
+                      completionProfile,
+                    )
                   }
                 >
                   Send a message
@@ -1873,7 +3490,11 @@ export default function Home() {
               <button
                 type="button"
                 className="text-button"
-                onClick={() => setCompletionProfile(null)}
+                onClick={() =>
+                  setCompletionProfile(
+                    null,
+                  )
+                }
               >
                 Return to Discover
               </button>
@@ -1884,15 +3505,21 @@ export default function Home() {
         {dialog && (
           <div className="modal-backdrop">
             <div className="confirm-modal">
-              <h2>{dialog.title}</h2>
+              <h2>
+                {dialog.title}
+              </h2>
 
-              <p>{dialog.message}</p>
+              <p>
+                {dialog.message}
+              </p>
 
               <div className="dialog-actions">
                 <button
                   type="button"
                   className="button lavender"
-                  onClick={() => setDialog(null)}
+                  onClick={() =>
+                    setDialog(null)
+                  }
                 >
                   Cancel
                 </button>
@@ -1901,7 +3528,8 @@ export default function Home() {
                   type="button"
                   className="button primary"
                   onClick={async () => {
-                    const action = dialog.action;
+                    const action =
+                      dialog.action;
 
                     setDialog(null);
 
