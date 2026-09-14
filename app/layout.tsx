@@ -11,6 +11,9 @@ const workSans = Work_Sans({
 export const metadata: Metadata = {
   title: "myFolks — Find common ground",
   description: "Find common ground with myFolks.",
+  icons: {
+    icon: "/myFolks_logo.jpg",
+  },
 };
 
 export default function RootLayout({

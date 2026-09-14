@@ -19,6 +19,7 @@ import React, {
   useState,
 } from "react";
 
+import Image from "next/image";
 import { flushSync } from "react-dom";
 
 import { Icon } from "@/components/home/Icon";
@@ -94,6 +95,10 @@ type DiscoverProfilesResponse = {
   profiles: Profile[];
 };
 
+type FriendsResponse = {
+  friends?: Profile[];
+};
+
 type LegacyProfileResponse = {
   profile?: Profile | null;
   profile_id?: string;
@@ -129,6 +134,9 @@ export default function Home() {
     useState(false);
 
   const [profiles, setProfiles] =
+    useState<Profile[]>([]);
+
+  const [friends, setFriends] =
     useState<Profile[]>([]);
 
   const [discoverState, setDiscoverState] =
@@ -298,21 +306,6 @@ export default function Home() {
         friendRequestStates,
       ],
     );
-
-  /*
-   * Discovery selections are not friendships.
-   *
-   * A profile only becomes a friend after:
-   *
-   * 1. A friend request is sent.
-   * 2. The recipient accepts it.
-   *
-   * Friends will be loaded from the friends API once that view
-   * is fully connected.
-   */
-  const friends = useMemo(() => {
-    return [] as Profile[];
-  }, []);
 
   const showView = (
     nextView: View,
@@ -596,10 +589,6 @@ export default function Home() {
           return null;
         }
 
-        /*
-         * apiRequest() intentionally returns unknown.
-         * Cast the response to the known API shape here.
-         */
         const data =
           (await apiRequest(
             API.friendRequests,
@@ -645,6 +634,12 @@ export default function Home() {
           }
 
           if (
+            states[otherProfileId]
+          ) {
+            continue;
+          }
+
+          if (
             request.status ===
             "accepted"
           ) {
@@ -664,28 +659,17 @@ export default function Home() {
             request.status ===
             "pending"
           ) {
-            if (
-              request.sender_id ===
-              user.id
-            ) {
-              states[
-                otherProfileId
-              ] = {
-                status:
-                  "pending",
-                requestId:
-                  request.id,
-              };
-            } else {
-              states[
-                otherProfileId
-              ] = {
-                status:
-                  "incoming",
-                requestId:
-                  request.id,
-              };
-            }
+            states[
+              otherProfileId
+            ] = {
+              status:
+                request.sender_id ===
+                user.id
+                  ? "pending"
+                  : "incoming",
+              requestId:
+                request.id,
+            };
           }
         }
 
@@ -702,6 +686,47 @@ export default function Home() {
 
         return null;
       }
+    };
+
+  const loadFriends =
+    async () => {
+      try {
+        if (!backendConnected) {
+          return;
+        }
+
+        const data =
+          (await apiRequest(
+            "/api/friends",
+          )) as FriendsResponse;
+
+        setFriends(
+          Array.isArray(
+            data.friends,
+          )
+            ? data.friends
+            : [],
+        );
+      } catch (error) {
+        console.error(
+          "Failed to load friends:",
+          error,
+        );
+      }
+    };
+
+  /*
+   * Refreshes relationship information used by
+   * the Friends page.
+   *
+   * This function intentionally returns Promise<void>
+   * because FriendsView only needs to know that the
+   * refresh has completed.
+   */
+  const refreshRelationshipData =
+    async (): Promise<void> => {
+      await loadFriendRequestStatuses();
+      await loadFriends();
     };
 
   const loadRemoteProfiles =
@@ -776,6 +801,41 @@ export default function Home() {
           "error",
         );
       }
+    };
+
+  const restartDiscovery =
+    async (
+      notice?: string,
+    ) => {
+      setCompletionProfile(
+        null,
+      );
+
+      setPositiveSelections(
+        [],
+      );
+
+      setPairQueue([]);
+
+      setPairIndex(0);
+
+      if (notice) {
+        setStatus(
+          "success",
+          notice,
+          "discover",
+        );
+      }
+
+      const requestStates =
+        await loadFriendRequestStatuses();
+
+      await loadRemoteProfiles(
+        requestStates ??
+          friendRequestStates,
+      );
+
+      setView("discover");
     };
 
   useLayoutEffect(() => {
@@ -955,6 +1015,26 @@ export default function Home() {
 
     void loadProfile();
   }, [authenticated]);
+
+  useEffect(() => {
+    if (
+      !authenticated ||
+      !backendConnected
+    ) {
+      return;
+    }
+
+    const refreshRelationships =
+      async () => {
+        await loadFriendRequestStatuses();
+        await loadFriends();
+      };
+
+    void refreshRelationships();
+  }, [
+    authenticated,
+    backendConnected,
+  ]);
 
   useEffect(() => {
     if (
@@ -1193,6 +1273,7 @@ export default function Home() {
           "discover",
         );
 
+        await restartDiscovery();
         return;
       }
 
@@ -1206,6 +1287,7 @@ export default function Home() {
           "discover",
         );
 
+        await restartDiscovery();
         return;
       }
 
@@ -1219,6 +1301,7 @@ export default function Home() {
           "discover",
         );
 
+        await restartDiscovery();
         return;
       }
 
@@ -1229,9 +1312,6 @@ export default function Home() {
           );
         }
 
-        /*
-         * The API expects recipient_profile_id.
-         */
         const data =
           (await apiRequest(
             API.friendRequests,
@@ -1242,7 +1322,7 @@ export default function Home() {
                   "application/json",
               },
               body: JSON.stringify({
-                recipient_profile_id:
+                recipient_id:
                   profileId,
               }),
             },
@@ -1276,33 +1356,9 @@ export default function Home() {
           nextFriendRequestStates,
         );
 
-        setPositiveSelections(
-          [],
-        );
-
-        setPairQueue([]);
-
-        setPairIndex(0);
-
-        setCompletionProfile(
-          null,
-        );
-
-        setStatus(
-          "success",
+        await restartDiscovery(
           "Friend request sent. Discovering new people for you.",
-          "discover",
         );
-
-        const synchronizedStates =
-          await loadFriendRequestStatuses();
-
-        await loadRemoteProfiles(
-          synchronizedStates ??
-            nextFriendRequestStates,
-        );
-
-        setView("discover");
       } catch (error) {
         console.error(
           "Failed to send friend request:",
@@ -1334,8 +1390,11 @@ export default function Home() {
             }),
           );
 
-          void loadFriendRequestStatuses();
-        } else if (
+          await restartDiscovery();
+          return;
+        }
+
+        if (
           errorMessage ===
           "You are already friends with this person."
         ) {
@@ -1354,8 +1413,12 @@ export default function Home() {
             }),
           );
 
-          void loadFriendRequestStatuses();
-        } else if (
+          await loadFriends();
+          await restartDiscovery();
+          return;
+        }
+
+        if (
           errorMessage.includes(
             "already sent you a friend request",
           )
@@ -1375,7 +1438,8 @@ export default function Home() {
             }),
           );
 
-          void loadFriendRequestStatuses();
+          await restartDiscovery();
+          return;
         }
 
         setStatus(
@@ -2538,6 +2602,8 @@ export default function Home() {
           {},
         );
 
+        setFriends([]);
+
         setActiveMessageProfile(
           null,
         );
@@ -2651,6 +2717,8 @@ export default function Home() {
           {},
         );
 
+        setFriends([]);
+
         setActiveMessageProfile(
           null,
         );
@@ -2724,7 +2792,13 @@ export default function Home() {
         <section className="auth-card">
           <div className="auth-brand">
             <div className="auth-brand-mark">
-              m
+              <Image
+                src="/myFolks_logo.jpg"
+                alt="myFolks"
+                width={48}
+                height={48}
+                className="brand-logo-image"
+              />
             </div>
 
             <div>
@@ -2775,7 +2849,13 @@ export default function Home() {
               }
             >
               <div className="brand-mark">
-                m
+                <Image
+                  src="/myFolks_logo.jpg"
+                  alt="myFolks"
+                  width={48}
+                  height={48}
+                  className="brand-logo-image"
+                />
               </div>
 
               <span>
@@ -3020,6 +3100,9 @@ export default function Home() {
               }
               onOpenMessage={
                 openSelectedMessage
+              }
+              onRequestsChanged={
+                refreshRelationshipData
               }
             />
           )}
@@ -3491,9 +3574,7 @@ export default function Home() {
                 type="button"
                 className="text-button"
                 onClick={() =>
-                  setCompletionProfile(
-                    null,
-                  )
+                  void restartDiscovery()
                 }
               >
                 Return to Discover

@@ -41,6 +41,7 @@ export function FriendsView({
   search,
   onSearch,
   onOpenMessage,
+  onRequestsChanged,
 }: {
   friends: Profile[];
   search: string;
@@ -48,6 +49,7 @@ export function FriendsView({
   onOpenMessage: (
     profile: Profile,
   ) => void;
+  onRequestsChanged?: () => Promise<void>;
 }) {
   const [localFriends, setLocalFriends] =
     useState<Profile[]>(friends);
@@ -235,6 +237,21 @@ export function FriendsView({
     }
   }
 
+  async function synchronizeParent() {
+    if (!onRequestsChanged) {
+      return;
+    }
+
+    try {
+      await onRequestsChanged();
+    } catch (error) {
+      console.error(
+        "Failed to synchronize parent relationship state:",
+        error,
+      );
+    }
+  }
+
   async function handleIncomingAction(
     request: FriendRequest,
     action:
@@ -279,11 +296,15 @@ export function FriendsView({
       ) {
         await refreshFriends();
 
+        await synchronizeParent();
+
         showStatus(
           "Friend request accepted. You are now friends.",
           "success",
         );
       } else {
+        await synchronizeParent();
+
         showStatus(
           "Friend request declined.",
           "success",
@@ -320,6 +341,7 @@ export function FriendsView({
     setRequestActionId(
       request.id,
     );
+
     setStatusMessage(null);
 
     try {
@@ -346,6 +368,8 @@ export function FriendsView({
               request.id,
           ),
       );
+
+      await synchronizeParent();
 
       showStatus(
         "Friend request cancelled.",

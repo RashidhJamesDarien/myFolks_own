@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { supabase } from "@/src/lib/supabase";
 
@@ -113,7 +114,15 @@ export default function AuthScreen() {
     <main className="auth-shell">
       <section className="auth-card">
         <div className="auth-brand">
-          <div className="auth-brand-mark">m</div>
+          <div className="auth-brand-mark">
+            <Image
+              src="/myFolks_logo.jpg"
+              alt="myFolks"
+              width={48}
+              height={48}
+              className="brand-logo-image"
+            />
+          </div>
 
           <div>
             <strong>myFolks</strong>
