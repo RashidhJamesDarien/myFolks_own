@@ -4,6 +4,7 @@ export type SupabaseProfile = {
   id: string;
   username: string;
   full_name: string;
+  featured_interest: string | null;
   bio: string | null;
   profile_image_url: string | null;
   location: string | null;
@@ -41,12 +42,14 @@ export async function getCurrentUserProfile(): Promise<SupabaseProfile | null> {
 export async function createProfile({
   username,
   fullName,
+  featuredInterest,
   bio,
   location,
   profileImageUrl,
 }: {
   username: string;
   fullName: string;
+  featuredInterest?: string;
   bio?: string;
   location?: string;
   profileImageUrl?: string | null;
@@ -61,7 +64,9 @@ export async function createProfile({
   }
 
   if (!user) {
-    throw new Error("You must be signed in to create a profile.");
+    throw new Error(
+      "You must be signed in to create a profile.",
+    );
   }
 
   const { data, error } = await supabase
@@ -70,6 +75,8 @@ export async function createProfile({
       id: user.id,
       username: username.trim(),
       full_name: fullName.trim(),
+      featured_interest:
+        featuredInterest?.trim() || null,
       bio: bio?.trim() || null,
       location: location?.trim() || null,
       profile_image_url: profileImageUrl || null,
@@ -87,12 +94,14 @@ export async function createProfile({
 export async function updateProfile({
   username,
   fullName,
+  featuredInterest,
   bio,
   location,
   profileImageUrl,
 }: {
   username?: string;
   fullName?: string;
+  featuredInterest?: string;
   bio?: string;
   location?: string;
   profileImageUrl?: string | null;
@@ -107,7 +116,9 @@ export async function updateProfile({
   }
 
   if (!user) {
-    throw new Error("You must be signed in to update your profile.");
+    throw new Error(
+      "You must be signed in to update your profile.",
+    );
   }
 
   const updates: Record<string, unknown> = {
@@ -120,6 +131,11 @@ export async function updateProfile({
 
   if (fullName !== undefined) {
     updates.full_name = fullName.trim();
+  }
+
+  if (featuredInterest !== undefined) {
+    updates.featured_interest =
+      featuredInterest.trim() || null;
   }
 
   if (bio !== undefined) {

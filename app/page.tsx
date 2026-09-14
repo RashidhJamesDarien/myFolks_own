@@ -6,7 +6,10 @@ import AuthScreen from "@/components/auth/AuthScreen";
 import {
   createProfile as createSupabaseProfile,
   getCurrentUserProfile,
+  updateProfile as updateSupabaseProfile,
 } from "@/src/lib/profile";
+
+import { uploadProfileImage } from "@/src/lib/profile-storage";
 
 import React, {
   useEffect,
@@ -61,6 +64,14 @@ type Message = {
   created_at?: string;
   message_asset_url?: string;
   message_asset_name?: string;
+};
+
+type UploadedProfilePhoto = {
+  url: string;
+  path: string;
+  name: string;
+  type: string;
+  size: number;
 };
 
 const API = {
@@ -390,6 +401,26 @@ export default function Home() {
 
   const [messageOpen, setMessageOpen] = useState(false);
 
+  const [editingProfile, setEditingProfile] = useState(false);
+
+  const [editFullName, setEditFullName] = useState("");
+  const [editUsername, setEditUsername] = useState("");
+  const [editBio, setEditBio] = useState("");
+  const [editLocation, setEditLocation] = useState("");
+  const [editInterests, setEditInterests] = useState<string[]>([]);
+  const [editCustomInterest, setEditCustomInterest] = useState("");
+  const [editProfilePhoto, setEditProfilePhoto] =
+    useState<File | null>(null);
+  const [editProfilePhotoUrl, setEditProfilePhotoUrl] =
+    useState<string | null>(null);
+
+  const [editProfileStatus, setEditProfileStatus] = useState<{
+    text: string;
+    type: "info" | "success" | "error";
+  } | null>(null);
+
+  const [editProfileSaving, setEditProfileSaving] = useState(false);
+
   const [settings, setSettings] = useState<Settings>({
     visibility: "published",
     lastSeenVisibility: "connections",
@@ -692,11 +723,10 @@ export default function Home() {
                 ? profile.username
                 : "myFolks user",
 
-          /*
-           * These fields belong to the UI/legacy model,
-           * not the current Supabase profiles table.
-           */
-          featured_interest: "",
+          featured_interest:
+            typeof profile.featured_interest === "string"
+              ? profile.featured_interest
+              : "",
 
           bio:
             typeof profile.bio === "string"
@@ -712,10 +742,6 @@ export default function Home() {
 
           allows_messages: true,
 
-          /*
-           * Supabase calls this profile_image_url.
-           * The UI uses photo_url.
-           */
           photo_url:
             typeof profile.profile_image_url === "string"
               ? profile.profile_image_url
@@ -740,6 +766,14 @@ export default function Home() {
 
     void loadRemoteProfiles();
   }, [authenticated]);
+
+  useEffect(() => {
+    return () => {
+      if (editProfilePhotoUrl) {
+        URL.revokeObjectURL(editProfilePhotoUrl);
+      }
+    };
+  }, [editProfilePhotoUrl]);
 
   const chooseInterest = (index: number) => {
     const chosen = currentPair[index];
@@ -930,6 +964,39 @@ export default function Home() {
     });
   };
 
+  const chooseEditProfilePhoto = (file?: File) => {
+    if (!file) return;
+
+    const allowed = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+    ].includes(file.type);
+
+    if (!allowed || file.size > MAX_PROFILE_PHOTO_SIZE) {
+      setEditProfileStatus({
+        text: "Choose a JPG, PNG, or WebP image no larger than 10 MB.",
+        type: "error",
+      });
+
+      return;
+    }
+
+    if (editProfilePhotoUrl) {
+      URL.revokeObjectURL(editProfilePhotoUrl);
+    }
+
+    const url = URL.createObjectURL(file);
+
+    setEditProfilePhoto(file);
+    setEditProfilePhotoUrl(url);
+
+    setEditProfileStatus({
+      text: "New profile photo selected.",
+      type: "info",
+    });
+  };
+
   useEffect(() => {
     return () => {
       if (profilePhotoUrl) {
@@ -937,54 +1004,6 @@ export default function Home() {
       }
     };
   }, [profilePhotoUrl]);
-
-  const uploadProfilePhoto = async (file: File) => {
-    return new Promise<any>((resolve, reject) => {
-      const request = new XMLHttpRequest();
-
-      request.open("POST", "/api/profile-assets");
-      request.withCredentials = true;
-
-      request.setRequestHeader(
-        "Accept",
-        "application/json",
-      );
-
-      request.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          setProfileStatus({
-            text: `Uploading profile photo — ${Math.round(
-              (event.loaded / event.total) * 100,
-            )}%`,
-            type: "info",
-          });
-        }
-      };
-
-      request.onload = () => {
-        if (request.status >= 200 && request.status < 300) {
-          try {
-            resolve(
-              JSON.parse(request.responseText || "{}"),
-            );
-          } catch {
-            resolve({});
-          }
-        } else {
-          reject(new Error("upload_failed"));
-        }
-      };
-
-      request.onerror = () =>
-        reject(new Error("upload_failed"));
-
-      const body = new FormData();
-
-      body.append("file", file);
-
-      request.send(body);
-    });
-  };
 
   const createProfile = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -1044,15 +1063,16 @@ export default function Home() {
         );
       }
 
-      let uploadedPhoto: any = null;
+      let uploadedPhoto: UploadedProfilePhoto | null = null;
 
       if (profilePhoto) {
-        uploadedPhoto = await uploadProfilePhoto(profilePhoto);
+        uploadedPhoto = await uploadProfileImage(profilePhoto);
       }
 
       const savedProfile = await createSupabaseProfile({
         username: metadataUsername,
         fullName: nameInput.value.trim(),
+        featuredInterest: interestInput.value.trim(),
         bio: bioInput.value.trim(),
         location: "",
         profileImageUrl: uploadedPhoto?.url || null,
@@ -1071,7 +1091,10 @@ export default function Home() {
             ? savedProfile.full_name
             : nameInput.value.trim(),
 
-        featured_interest: interestInput.value.trim(),
+        featured_interest:
+          typeof savedProfile.featured_interest === "string"
+            ? savedProfile.featured_interest
+            : interestInput.value.trim(),
 
         bio:
           typeof savedProfile.bio === "string"
@@ -1093,10 +1116,6 @@ export default function Home() {
             : uploadedPhoto?.url,
       };
 
-      /*
-       * The existing API still owns the legacy profile metadata
-       * such as featured interest/photo metadata.
-       */
       try {
         const legacyProfile: Record<string, unknown> = {
           profile_id: normalizedProfile.profile_id,
@@ -1185,6 +1204,269 @@ export default function Home() {
         text: message,
         type: "error",
       });
+    }
+  };
+
+  const beginProfileEdit = () => {
+    if (!currentProfile) return;
+
+    setEditFullName(currentProfile.display_name || "");
+    setEditUsername(currentProfile.username || "");
+    setEditBio(currentProfile.bio || "");
+    setEditLocation(currentProfile.location || "");
+
+    const existingInterests = currentProfile.featured_interest
+      ? currentProfile.featured_interest
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [];
+
+    const knownInterests = existingInterests.filter((interest) =>
+      FEATURED_INTERESTS.includes(interest),
+    );
+
+    const customInterests = existingInterests.filter(
+      (interest) => !FEATURED_INTERESTS.includes(interest),
+    );
+
+    setEditInterests(knownInterests);
+    setEditCustomInterest(customInterests.join(", "));
+
+    setEditProfilePhoto(null);
+
+    if (editProfilePhotoUrl) {
+      URL.revokeObjectURL(editProfilePhotoUrl);
+    }
+
+    setEditProfilePhotoUrl(null);
+    setEditProfileStatus(null);
+    setEditingProfile(true);
+  };
+
+  const saveEditedProfile = async () => {
+    if (!currentProfile) return;
+
+    const fullName = editFullName.trim();
+    const username = editUsername.trim();
+    const bio = editBio.trim();
+    const location = editLocation.trim();
+
+    const combinedInterests = [
+      ...editInterests,
+      ...(editCustomInterest.trim()
+        ? editCustomInterest
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : []),
+    ];
+
+    const uniqueInterests = Array.from(
+      new Set(combinedInterests),
+    );
+
+    if (!fullName) {
+      setEditProfileStatus({
+        text: "Please enter your display name.",
+        type: "error",
+      });
+
+      return;
+    }
+
+    if (!username) {
+      setEditProfileStatus({
+        text: "Please enter your username.",
+        type: "error",
+      });
+
+      return;
+    }
+
+    if (!uniqueInterests.length) {
+      setEditProfileStatus({
+        text: "Choose at least one featured interest.",
+        type: "error",
+      });
+
+      return;
+    }
+
+    setEditProfileSaving(true);
+    setEditProfileStatus({
+      text: "Saving your profile...",
+      type: "info",
+    });
+
+    try {
+      let uploadedPhoto: UploadedProfilePhoto | null = null;
+
+      if (editProfilePhoto) {
+        uploadedPhoto =
+          await uploadProfileImage(editProfilePhoto);
+      }
+
+      const savedProfile =
+        await updateSupabaseProfile({
+          username,
+          fullName,
+          bio,
+          location,
+          ...(uploadedPhoto?.url
+            ? {
+                profileImageUrl:
+                  uploadedPhoto.url,
+              }
+            : {}),
+        });
+
+      const featuredInterest =
+        uniqueInterests.join(", ");
+
+      const updatedProfile: Profile = {
+        ...currentProfile,
+
+        profile_id: savedProfile.id,
+
+        username:
+          typeof savedProfile.username === "string"
+            ? savedProfile.username
+            : username,
+
+        display_name:
+          typeof savedProfile.full_name === "string"
+            ? savedProfile.full_name
+            : fullName,
+
+        featured_interest: featuredInterest,
+
+        bio:
+          typeof savedProfile.bio === "string"
+            ? savedProfile.bio
+            : bio,
+
+        location:
+          typeof savedProfile.location === "string"
+            ? savedProfile.location
+            : location,
+
+        photo_url:
+          typeof savedProfile.profile_image_url === "string"
+            ? savedProfile.profile_image_url
+            : uploadedPhoto?.url ||
+              currentProfile.photo_url,
+
+        visibility:
+          currentProfile.visibility || "published",
+
+        allows_messages:
+          currentProfile.allows_messages ?? true,
+      };
+
+      try {
+        const legacySaved = await apiRequest(API.profile, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            profile_id: updatedProfile.profile_id,
+            display_name: updatedProfile.display_name,
+            featured_interest:
+              updatedProfile.featured_interest,
+            bio: updatedProfile.bio || "",
+            location: updatedProfile.location || "",
+            visibility:
+              updatedProfile.visibility || "published",
+            ...(updatedProfile.photo_url
+              ? {
+                  photo_url:
+                    updatedProfile.photo_url,
+                }
+              : {}),
+          }),
+        });
+
+        const remoteProfile =
+          legacySaved?.profile || legacySaved;
+
+        if (remoteProfile?.profile_id) {
+          Object.assign(updatedProfile, {
+            ...remoteProfile,
+
+            profile_id:
+              remoteProfile.profile_id ||
+              updatedProfile.profile_id,
+
+            username:
+              remoteProfile.username ||
+              updatedProfile.username,
+
+            display_name:
+              remoteProfile.display_name ||
+              updatedProfile.display_name,
+
+            featured_interest:
+              remoteProfile.featured_interest ||
+              updatedProfile.featured_interest,
+
+            bio:
+              remoteProfile.bio ??
+              updatedProfile.bio,
+
+            location:
+              remoteProfile.location ??
+              updatedProfile.location,
+
+            visibility:
+              remoteProfile.visibility ||
+              updatedProfile.visibility,
+
+            photo_url:
+              remoteProfile.photo_url ||
+              updatedProfile.photo_url,
+          });
+        }
+      } catch (legacyError) {
+        console.warn(
+          "Legacy profile endpoint was unavailable while saving edited profile:",
+          legacyError,
+        );
+      }
+
+      setCurrentProfile(updatedProfile);
+
+      setEditProfileStatus({
+        text: "Profile updated successfully.",
+        type: "success",
+      });
+
+      setEditingProfile(false);
+      setEditProfilePhoto(null);
+
+      if (editProfilePhotoUrl) {
+        URL.revokeObjectURL(editProfilePhotoUrl);
+        setEditProfilePhotoUrl(null);
+      }
+
+      await loadRemoteProfiles();
+    } catch (error) {
+      console.error(
+        "Failed to update profile:",
+        error,
+      );
+
+      setEditProfileStatus({
+        text:
+          error instanceof Error &&
+          error.message !== "backend_unavailable"
+            ? error.message
+            : "Your profile could not be updated. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setEditProfileSaving(false);
     }
   };
 
@@ -1392,6 +1674,7 @@ export default function Home() {
       setCompletionProfile(null);
       setActiveMessageProfile(null);
       setMessageOpen(false);
+      setEditingProfile(false);
       setView("discover");
     } catch {
       setSettingsStatus({
@@ -1401,28 +1684,68 @@ export default function Home() {
     }
   };
 
-  const deleteProfile = async () => {
+  const deleteAccount = async () => {
     try {
-      if (!backendConnected) {
-        throw new Error("backend_unavailable");
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Your session has expired.");
       }
 
-      await apiRequest(API.profile, {
-        method: "DELETE",
-      });
+      const response = await fetch(
+        "/api/account/delete",
+        {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        let message =
+          "Your account could not be deleted.";
+
+        try {
+          const data = await response.json();
+
+          if (typeof data?.error === "string") {
+            message = data.error;
+          }
+        } catch {
+          // Ignore invalid JSON error responses.
+        }
+
+        throw new Error(message);
+      }
+
+      await supabase.auth.signOut();
 
       setCurrentProfile(null);
       setProfileConfirmed(false);
+      setPositiveSelections([]);
+      setPairQueue([]);
+      setPairIndex(0);
+      setCompletionProfile(null);
+      setActiveMessageProfile(null);
+      setMessageOpen(false);
+      setEditingProfile(false);
+      setProfiles([]);
+      setView("discover");
+    } catch (error) {
+      console.error(
+        "Failed to delete account:",
+        error,
+      );
 
       setSettingsStatus({
-        text: "Your profile was deleted.",
-        type: "success",
-      });
-
-      showView("discover");
-    } catch {
-      setSettingsStatus({
-        text: "Your profile could not be deleted remotely.",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Your account could not be deleted. Please try again.",
         type: "error",
       });
     }
@@ -1726,6 +2049,63 @@ export default function Home() {
           {view === "profile" && (
             <ProfileView
               profile={currentProfile}
+              editing={editingProfile}
+              editFullName={editFullName}
+              editUsername={editUsername}
+              editBio={editBio}
+              editLocation={editLocation}
+              editInterests={editInterests}
+              editCustomInterest={editCustomInterest}
+              editProfilePhotoUrl={editProfilePhotoUrl}
+              editProfileStatus={editProfileStatus}
+              editProfileSaving={editProfileSaving}
+              onStartEdit={beginProfileEdit}
+              onCancelEdit={() => {
+                setEditingProfile(false);
+                setEditProfileStatus(null);
+                setEditProfilePhoto(null);
+
+                if (editProfilePhotoUrl) {
+                  URL.revokeObjectURL(
+                    editProfilePhotoUrl,
+                  );
+                }
+
+                setEditProfilePhotoUrl(null);
+              }}
+              onFullNameChange={setEditFullName}
+              onUsernameChange={setEditUsername}
+              onBioChange={setEditBio}
+              onLocationChange={setEditLocation}
+              onToggleInterest={(interest) => {
+                setEditInterests((previous) =>
+                  previous.includes(interest)
+                    ? previous.filter(
+                        (item) => item !== interest,
+                      )
+                    : [...previous, interest],
+                );
+              }}
+              onCustomInterestChange={
+                setEditCustomInterest
+              }
+              onPhoto={chooseEditProfilePhoto}
+              onRemovePhoto={() => {
+                if (editProfilePhotoUrl) {
+                  URL.revokeObjectURL(
+                    editProfilePhotoUrl,
+                  );
+                }
+
+                setEditProfilePhoto(null);
+                setEditProfilePhotoUrl(null);
+
+                setEditProfileStatus({
+                  text: "New profile photo removed.",
+                  type: "info",
+                });
+              }}
+              onSave={saveEditedProfile}
               onSignOut={() =>
                 openConfirmation(
                   "Sign out of myFolks?",
@@ -1745,9 +2125,9 @@ export default function Home() {
               onSave={saveSettings}
               onDelete={() =>
                 openConfirmation(
-                  "Delete your profile?",
-                  "This is a destructive action and cannot be undone.",
-                  deleteProfile,
+                  "Delete your account?",
+                  "This will permanently delete your myFolks account and associated profile data. This action cannot be undone.",
+                  deleteAccount,
                 )
               }
               onSignOut={() =>
@@ -1762,7 +2142,7 @@ export default function Home() {
         </main>
 
         <footer className="site-footer">
-          © All rights reserved by myFolks
+          © 2026 All rights reserved by Darien Corporation
         </footer>
 
         {completionProfile && (
@@ -2824,11 +3204,340 @@ function CreateProfileView({
 
 function ProfileView({
   profile,
+  editing,
+  editFullName,
+  editUsername,
+  editBio,
+  editLocation,
+  editInterests,
+  editCustomInterest,
+  editProfilePhotoUrl,
+  editProfileStatus,
+  editProfileSaving,
+  onStartEdit,
+  onCancelEdit,
+  onFullNameChange,
+  onUsernameChange,
+  onBioChange,
+  onLocationChange,
+  onToggleInterest,
+  onCustomInterestChange,
+  onPhoto,
+  onRemovePhoto,
+  onSave,
   onSignOut,
 }: {
   profile: Profile | null;
+  editing: boolean;
+  editFullName: string;
+  editUsername: string;
+  editBio: string;
+  editLocation: string;
+  editInterests: string[];
+  editCustomInterest: string;
+  editProfilePhotoUrl: string | null;
+  editProfileStatus: {
+    text: string;
+    type: "info" | "success" | "error";
+  } | null;
+  editProfileSaving: boolean;
+  onStartEdit: () => void;
+  onCancelEdit: () => void;
+  onFullNameChange: (value: string) => void;
+  onUsernameChange: (value: string) => void;
+  onBioChange: (value: string) => void;
+  onLocationChange: (value: string) => void;
+  onToggleInterest: (interest: string) => void;
+  onCustomInterestChange: (value: string) => void;
+  onPhoto: (file?: File) => void;
+  onRemovePhoto: () => void;
+  onSave: () => void;
   onSignOut: () => void;
 }) {
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const [showMoreInterests, setShowMoreInterests] =
+    useState(false);
+
+  const visibleInterests = showMoreInterests
+    ? FEATURED_INTERESTS
+    : FEATURED_INTERESTS.slice(
+        0,
+        INITIAL_FEATURED_INTERESTS,
+      );
+
+  if (editing) {
+    return (
+      <section className="view-panel">
+        <div className="section-heading-row">
+          <div>
+            <Eyebrow>Your identity</Eyebrow>
+
+            <h1>Edit my profile</h1>
+
+            <p className="section-copy">
+              Update the information people see when they
+              discover you on myFolks.
+            </p>
+          </div>
+        </div>
+
+        <div className="profile-form">
+          <div className="form-grid">
+            <div className="profile-identity-section full">
+              <input
+                ref={photoInputRef}
+                type="file"
+                hidden
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) =>
+                  onPhoto(event.target.files?.[0])
+                }
+              />
+
+              <button
+                type="button"
+                className="profile-photo-button"
+                onClick={() =>
+                  photoInputRef.current?.click()
+                }
+                aria-label="Change profile photo"
+              >
+                {editProfilePhotoUrl ? (
+                  <img
+                    src={editProfilePhotoUrl}
+                    alt="New profile photo"
+                    className="profile-photo-circle"
+                  />
+                ) : (
+                  <Avatar
+                    profile={profile}
+                    large
+                  />
+                )}
+              </button>
+
+              <p className="profile-photo-hint">
+                Click your photo to choose a new one
+              </p>
+
+              {editProfilePhotoUrl && (
+                <button
+                  type="button"
+                  className="remove-profile-photo"
+                  onClick={onRemovePhoto}
+                >
+                  Remove new photo
+                </button>
+              )}
+            </div>
+
+            <div className="field full">
+              <label htmlFor="edit-profile-name">
+                Display name
+              </label>
+
+              <input
+                id="edit-profile-name"
+                type="text"
+                value={editFullName}
+                maxLength={80}
+                onChange={(event) =>
+                  onFullNameChange(
+                    event.target.value,
+                  )
+                }
+                disabled={editProfileSaving}
+                required
+              />
+            </div>
+
+            <div className="field full">
+              <label htmlFor="edit-profile-username">
+                Username
+              </label>
+
+              <input
+                id="edit-profile-username"
+                type="text"
+                value={editUsername}
+                maxLength={40}
+                onChange={(event) =>
+                  onUsernameChange(
+                    event.target.value,
+                  )
+                }
+                disabled={editProfileSaving}
+                required
+              />
+            </div>
+
+            <div className="field full">
+              <label htmlFor="edit-profile-location">
+                Location
+              </label>
+
+              <input
+                id="edit-profile-location"
+                type="text"
+                value={editLocation}
+                maxLength={120}
+                onChange={(event) =>
+                  onLocationChange(
+                    event.target.value,
+                  )
+                }
+                disabled={editProfileSaving}
+                placeholder="City, country"
+              />
+            </div>
+
+            <div className="field full interest-field">
+              <div className="interest-label-row">
+                <label>
+                  Featured interests
+                </label>
+
+                <span className="interest-label-hint">
+                  Choose as many as you like
+                </span>
+              </div>
+
+              <div className="interest-picker">
+                <div
+                  className="interest-bubbles"
+                  aria-label="Featured interests"
+                >
+                  {visibleInterests.map(
+                    (interest) => {
+                      const selected =
+                        editInterests.includes(
+                          interest,
+                        );
+
+                      return (
+                        <button
+                          key={interest}
+                          type="button"
+                          className={`interest-bubble ${
+                            selected
+                              ? "is-selected"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            onToggleInterest(
+                              interest,
+                            )
+                          }
+                          aria-pressed={selected}
+                          disabled={
+                            editProfileSaving
+                          }
+                        >
+                          <span>
+                            {interest}
+                          </span>
+
+                          {selected && (
+                            <span
+                              className="interest-bubble-check"
+                              aria-hidden="true"
+                            >
+                              ✓
+                            </span>
+                          )}
+                        </button>
+                      );
+                    },
+                  )}
+                </div>
+
+                {!showMoreInterests && (
+                  <button
+                    type="button"
+                    className="interest-more-button"
+                    onClick={() =>
+                      setShowMoreInterests(true)
+                    }
+                  >
+                    more +
+                  </button>
+                )}
+              </div>
+
+              <div className="interest-custom-input">
+                <input
+                  type="text"
+                  value={editCustomInterest}
+                  maxLength={200}
+                  onChange={(event) =>
+                    onCustomInterestChange(
+                      event.target.value,
+                    )
+                  }
+                  disabled={editProfileSaving}
+                  placeholder="Or type your own interest..."
+                />
+              </div>
+
+              <p className="interest-helper">
+                For multiple custom interests, separate them
+                with commas.
+              </p>
+            </div>
+
+            <div className="field full">
+              <label htmlFor="edit-profile-bio">
+                Short bio
+              </label>
+
+              <textarea
+                id="edit-profile-bio"
+                rows={5}
+                maxLength={280}
+                value={editBio}
+                onChange={(event) =>
+                  onBioChange(event.target.value)
+                }
+                disabled={editProfileSaving}
+                placeholder="Tell people a little about yourself..."
+              />
+            </div>
+          </div>
+
+          {editProfileStatus && (
+            <StatusMessage
+              text={editProfileStatus.text}
+              type={editProfileStatus.type}
+            />
+          )}
+
+          <div className="dialog-actions">
+            <button
+              type="button"
+              className="button lavender"
+              onClick={onCancelEdit}
+              disabled={editProfileSaving}
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              className="button primary"
+              onClick={onSave}
+              disabled={editProfileSaving}
+            >
+              {editProfileSaving
+                ? "Saving..."
+                : "Save changes"}
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="view-panel">
       <Eyebrow>Your controls</Eyebrow>
@@ -2836,9 +3545,9 @@ function ProfileView({
       <h1>My profile</h1>
 
       <p className="section-copy">
-        Review exactly what you share, update your featured
-        interest, or take your profile out of Discover
-        whenever you want.
+        Review exactly what you share, update your profile,
+        or take your profile out of Discover whenever you
+        want.
       </p>
 
       {profile && (
@@ -2847,13 +3556,24 @@ function ProfileView({
 
           <h2>{profile.display_name}</h2>
 
+          {profile.username && (
+            <p className="profile-username">
+              @{profile.username}
+            </p>
+          )}
+
           <strong>
-            {profile.featured_interest}
+            {profile.featured_interest ||
+              "No interests added yet."}
           </strong>
 
           <p>
             {profile.bio || "No bio added yet."}
           </p>
+
+          {profile.location && (
+            <p>{profile.location}</p>
+          )}
 
           <div className="visibility-pill">
             Visibility:{" "}
@@ -2863,13 +3583,24 @@ function ProfileView({
         </div>
       )}
 
-      <button
-        type="button"
-        className="button outline"
-        onClick={onSignOut}
-      >
-        Sign out
-      </button>
+      <div className="dialog-actions">
+        <button
+          type="button"
+          className="button primary"
+          onClick={onStartEdit}
+          disabled={!profile}
+        >
+          Edit profile
+        </button>
+
+        <button
+          type="button"
+          className="button outline"
+          onClick={onSignOut}
+        >
+          Sign out
+        </button>
+      </div>
     </section>
   );
 }
@@ -3048,7 +3779,7 @@ function SettingsView({
             className="safety-button danger-outline"
             onClick={onDelete}
           >
-            Delete profile
+            Delete account
           </button>
 
           <button

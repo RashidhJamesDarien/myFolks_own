@@ -123,7 +123,7 @@ export default function AuthScreen() {
 
         <div className="auth-heading">
           <p className="eyebrow">
-            {mode === "login" ? "Welcome back" : "Join myFolks"}
+            {mode === "login" ? "Hey!!!!!!!" : "Join myFolks"}
           </p>
 
           <h1>
@@ -150,7 +150,7 @@ export default function AuthScreen() {
                 onChange={(event) =>
                   setUsername(event.target.value)
                 }
-                placeholder="your username"
+                placeholder="Enter your username"
                 autoComplete="username"
                 disabled={loading}
                 required
@@ -167,7 +167,7 @@ export default function AuthScreen() {
               onChange={(event) =>
                 setEmail(event.target.value)
               }
-              placeholder="you@example.com"
+              placeholder="Enter your email address"
               autoComplete="email"
               disabled={loading}
               required
@@ -183,7 +183,7 @@ export default function AuthScreen() {
               onChange={(event) =>
                 setPassword(event.target.value)
               }
-              placeholder="At least 8 characters"
+              placeholder="Enter your password"
               autoComplete={
                 mode === "login"
                   ? "current-password"
@@ -204,7 +204,7 @@ export default function AuthScreen() {
                 onChange={(event) =>
                   setConfirmPassword(event.target.value)
                 }
-                placeholder="Enter your password again"
+                placeholder="Confirm your password"
                 autoComplete="new-password"
                 disabled={loading}
                 required
