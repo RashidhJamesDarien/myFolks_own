@@ -36,6 +36,21 @@ type FriendRequestsResponse = {
   requests?: FriendRequest[];
 };
 
+type SearchRelationship =
+  | "friends"
+  | "pending_outgoing"
+  | "pending_incoming"
+  | "none";
+
+type SearchProfile =
+  Profile & {
+    relationship: SearchRelationship;
+  };
+
+type ProfileSearchResponse = {
+  profiles?: SearchProfile[];
+};
+
 export function FriendsView({
   friends,
   search,
@@ -56,6 +71,12 @@ export function FriendsView({
 
   const [requests, setRequests] =
     useState<FriendRequest[]>([]);
+
+  const [searchResults, setSearchResults] =
+    useState<SearchProfile[]>([]);
+
+  const [searchLoading, setSearchLoading] =
+    useState(false);
 
   const [loadingRequests, setLoadingRequests] =
     useState(true);
@@ -123,6 +144,74 @@ export function FriendsView({
     };
   }, []);
 
+  useEffect(() => {
+    const query =
+      search.trim();
+
+    if (!query) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const timer =
+      window.setTimeout(
+        async () => {
+          try {
+            setSearchLoading(true);
+
+            const data =
+              (await apiRequest(
+                `${API.profileSearch}?q=${encodeURIComponent(
+                  query,
+                )}`,
+              )) as ProfileSearchResponse;
+
+            if (cancelled) {
+              return;
+            }
+
+            setSearchResults(
+              data.profiles ?? [],
+            );
+          } catch (error) {
+            console.error(
+              "Failed to search myFolks users:",
+              error,
+            );
+
+            if (!cancelled) {
+              setSearchResults([]);
+
+              setStatusType(
+                "error",
+              );
+
+              setStatusMessage(
+                error instanceof Error
+                  ? error.message
+                  : "Unable to search myFolks users.",
+              );
+            }
+          } finally {
+            if (!cancelled) {
+              setSearchLoading(
+                false,
+              );
+            }
+          }
+        },
+        350,
+      );
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [search]);
+
   const incomingRequests =
     useMemo(
       () =>
@@ -182,6 +271,9 @@ export function FriendsView({
         },
       );
     }, [localFriends, search]);
+
+  const isSearching =
+    search.trim().length > 0;
 
   function showStatus(
     message: string,
@@ -291,6 +383,8 @@ export function FriendsView({
           ),
       );
 
+      await refreshSearchResults();
+
       if (
         action === "accept"
       ) {
@@ -371,10 +465,12 @@ export function FriendsView({
 
       await synchronizeParent();
 
-      showStatus(
-        "Friend request cancelled.",
-        "success",
-      );
+      /*
+       * Refresh search results silently.
+       *
+       * There is intentionally no success notification here.
+       */
+      await refreshSearchResults();
     } catch (error) {
       console.error(
         "Failed to cancel friend request:",
@@ -392,6 +488,131 @@ export function FriendsView({
     } finally {
       setRequestActionId(null);
     }
+  }
+
+  async function refreshSearchResults() {
+    const query =
+      search.trim();
+
+    if (!query) {
+      return;
+    }
+
+    try {
+      const data =
+        (await apiRequest(
+          `${API.profileSearch}?q=${encodeURIComponent(
+            query,
+          )}`,
+        )) as ProfileSearchResponse;
+
+      setSearchResults(
+        data.profiles ?? [],
+      );
+    } catch (error) {
+      console.error(
+        "Failed to refresh profile search:",
+        error,
+      );
+    }
+  }
+
+  async function handleSendFriendRequest(
+    profile: SearchProfile,
+  ) {
+    if (requestActionId) {
+      return;
+    }
+
+    setRequestActionId(
+      profile.profile_id,
+    );
+
+    setStatusMessage(null);
+
+    try {
+      await apiRequest(
+        API.friendRequests,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            recipient_id:
+              profile.profile_id,
+          }),
+        },
+      );
+
+      setSearchResults(
+        (currentResults) =>
+          currentResults.map(
+            (result) =>
+              result.profile_id ===
+              profile.profile_id
+                ? {
+                    ...result,
+                    relationship:
+                      "pending_outgoing",
+                  }
+                : result,
+          ),
+      );
+
+      await refreshRequests();
+      await synchronizeParent();
+
+      showStatus(
+        `Friend request sent to ${profile.display_name}.`,
+        "success",
+      );
+    } catch (error) {
+      console.error(
+        "Failed to send friend request:",
+        error,
+      );
+
+      showStatus(
+        error instanceof Error
+          ? error.message
+          : "Unable to send friend request.",
+        "error",
+      );
+
+      await refreshSearchResults();
+    } finally {
+      setRequestActionId(null);
+    }
+  }
+
+  async function handleSearchIncomingAction(
+    profile: SearchProfile,
+    action:
+      | "accept"
+      | "decline",
+  ) {
+    const matchingRequest =
+      requests.find(
+        (request) =>
+          request.direction ===
+            "incoming" &&
+          request.status ===
+            "pending" &&
+          request.sender_id ===
+            profile.profile_id,
+      );
+
+    if (!matchingRequest) {
+      await refreshRequests();
+      return;
+    }
+
+    await handleIncomingAction(
+      matchingRequest,
+      action,
+    );
   }
 
   return (
@@ -660,7 +881,7 @@ export function FriendsView({
 
       <div className="search-field">
         <label htmlFor="friend-search">
-          Search friends
+          Search myFolks
         </label>
 
         <div className="search-input-wrap">
@@ -678,7 +899,7 @@ export function FriendsView({
                 event.target.value,
               )
             }
-            placeholder="Search friends"
+            placeholder="Search by name, username, or interest"
           />
 
           {search && (
@@ -687,7 +908,7 @@ export function FriendsView({
               onClick={() =>
                 onSearch("")
               }
-              aria-label="Clear friend search"
+              aria-label="Clear search"
             >
               <Icon
                 name="x"
@@ -698,77 +919,285 @@ export function FriendsView({
         </div>
       </div>
 
-      {!filteredFriends.length ? (
-        <div className="empty-banner">
-          <Icon
-            name="heart"
-            size={30}
-          />
+      {isSearching ? (
+        <section className="profile-search-results">
+          <div className="section-heading">
+            <div>
+              <Eyebrow>
+                People
+              </Eyebrow>
 
-          <p>
-            {search
-              ? "No friends match that name."
-              : "No accepted friends yet. When someone accepts your request, they will appear here."}
-          </p>
-        </div>
-      ) : (
-        <div className="friends-grid">
-          {filteredFriends.map(
-            (friend) => (
-              <article
-                className="friend-card"
-                key={
-                  friend.profile_id
-                }
-              >
-                <Avatar
-                  profile={friend}
-                />
+              <h2>
+                Search results
+              </h2>
+            </div>
 
-                <div>
-                  <h2>
-                    {
-                      friend.display_name
-                    }
-                  </h2>
-
-                  {friend.username && (
-                    <p>
-                      @
-                      {
-                        friend.username
-                      }
-                    </p>
-                  )}
-
-                  {friend.featured_interest && (
-                    <p>
-                      {
-                        friend.featured_interest
-                      }
-                    </p>
-                  )}
-
-                  <p className="request-status">
-                    Friends
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  className="button lavender"
-                  onClick={() =>
-                    onOpenMessage(
-                      friend,
-                    )
+            {!searchLoading &&
+              searchResults.length >
+                0 && (
+                <span className="request-count">
+                  {
+                    searchResults.length
                   }
-                >
-                  Message
-                </button>
-              </article>
-            ),
+                </span>
+              )}
+          </div>
+
+          {searchLoading ? (
+            <div className="empty-banner">
+              <Icon
+                name="search"
+                size={30}
+              />
+
+              <p>
+                Searching myFolks...
+              </p>
+            </div>
+          ) : !searchResults.length ? (
+            <div className="empty-banner">
+              <Icon
+                name="search"
+                size={30}
+              />
+
+              <p>
+                No myFolks users match
+                that search.
+              </p>
+            </div>
+          ) : (
+            <div className="friends-grid profile-search-grid">
+              {searchResults.map(
+                (profile) => {
+                  const processing =
+                    requestActionId ===
+                    profile.profile_id;
+
+                  return (
+                    <article
+                      className="friend-card profile-search-card"
+                      key={
+                        profile.profile_id
+                      }
+                    >
+                      <Avatar
+                        profile={profile}
+                      />
+
+                      <div className="profile-search-card-content">
+                        <h2>
+                          {
+                            profile.display_name
+                          }
+                        </h2>
+
+                        {profile.username && (
+                          <p>
+                            @
+                            {
+                              profile.username
+                            }
+                          </p>
+                        )}
+
+                        {profile.featured_interest && (
+                          <p>
+                            {
+                              profile.featured_interest
+                            }
+                          </p>
+                        )}
+
+                        <p className="request-status">
+                          {profile.relationship ===
+                            "friends" &&
+                            "Friends"}
+
+                          {profile.relationship ===
+                            "pending_outgoing" &&
+                            "Request sent"}
+
+                          {profile.relationship ===
+                            "pending_incoming" &&
+                            "Wants to be your friend"}
+
+                          {profile.relationship ===
+                            "none" &&
+                            "Not connected"}
+                        </p>
+                      </div>
+
+                      <div className="profile-search-actions">
+                        {profile.relationship ===
+                          "friends" && (
+                          <button
+                            type="button"
+                            className="button lavender"
+                            onClick={() =>
+                              onOpenMessage(
+                                profile,
+                              )
+                            }
+                          >
+                            Message
+                          </button>
+                        )}
+
+                        {profile.relationship ===
+                          "pending_outgoing" && (
+                          <button
+                            type="button"
+                            className="button secondary"
+                            disabled
+                          >
+                            Pending
+                          </button>
+                        )}
+
+                        {profile.relationship ===
+                          "pending_incoming" && (
+                          <>
+                            <button
+                              type="button"
+                              className="button lavender"
+                              disabled={
+                                processing
+                              }
+                              onClick={() =>
+                                handleSearchIncomingAction(
+                                  profile,
+                                  "accept",
+                                )
+                              }
+                            >
+                              {processing
+                                ? "..."
+                                : "Accept"}
+                            </button>
+
+                            <button
+                              type="button"
+                              className="button secondary"
+                              disabled={
+                                processing
+                              }
+                              onClick={() =>
+                                handleSearchIncomingAction(
+                                  profile,
+                                  "decline",
+                                )
+                              }
+                            >
+                              Decline
+                            </button>
+                          </>
+                        )}
+
+                        {profile.relationship ===
+                          "none" && (
+                          <button
+                            type="button"
+                            className="button lavender"
+                            disabled={
+                              processing
+                            }
+                            onClick={() =>
+                              handleSendFriendRequest(
+                                profile,
+                              )
+                            }
+                          >
+                            {processing
+                              ? "..."
+                              : "Add friend"}
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                },
+              )}
+            </div>
           )}
-        </div>
+        </section>
+      ) : (
+        <>
+          <div className="search-field-spacer" />
+
+          {!filteredFriends.length ? (
+            <div className="empty-banner">
+              <Icon
+                name="heart"
+                size={30}
+              />
+
+              <p>
+                {search
+                  ? "No friends match that name."
+                  : "No accepted friends yet. When someone accepts your request, they will appear here."}
+              </p>
+            </div>
+          ) : (
+            <div className="friends-grid">
+              {filteredFriends.map(
+                (friend) => (
+                  <article
+                    className="friend-card"
+                    key={
+                      friend.profile_id
+                    }
+                  >
+                    <Avatar
+                      profile={friend}
+                    />
+
+                    <div>
+                      <h2>
+                        {
+                          friend.display_name
+                        }
+                      </h2>
+
+                      {friend.username && (
+                        <p>
+                          @
+                          {
+                            friend.username
+                          }
+                        </p>
+                      )}
+
+                      {friend.featured_interest && (
+                        <p>
+                          {
+                            friend.featured_interest
+                          }
+                        </p>
+                      )}
+
+                      <p className="request-status">
+                        Friends
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="button lavender"
+                      onClick={() =>
+                        onOpenMessage(
+                          friend,
+                        )
+                      }
+                    >
+                      Message
+                    </button>
+                  </article>
+                ),
+              )}
+            </div>
+          )}
+        </>
       )}
     </section>
   );

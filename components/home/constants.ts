@@ -2,6 +2,7 @@ export const API = {
   health: "/api/health",
   discover: "/api/discover/profiles",
   friendRequests: "/api/friend-requests",
+  profileSearch: "/api/profile-search",
   messages: "/api/messages",
   reports: "/api/reports",
   blocks: "/api/blocks",
@@ -10,8 +11,11 @@ export const API = {
   signOut: "/api/auth/signout",
 };
 
-export const MAX_PROFILE_PHOTO_SIZE = 10 * 1024 * 1024;
-export const MAX_MESSAGE_ASSET_SIZE = 10 * 1024 * 1024;
+export const MAX_PROFILE_PHOTO_SIZE =
+  10 * 1024 * 1024;
+
+export const MAX_MESSAGE_ASSET_SIZE =
+  10 * 1024 * 1024;
 
 export const FEATURED_INTERESTS = [
   "Music",
