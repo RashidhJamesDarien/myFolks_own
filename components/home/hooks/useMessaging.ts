@@ -34,16 +34,14 @@ export type ConversationMessage = {
   message_asset_type?: string;
   message_asset_size?: number;
   created_at: string;
+
+  deleted_for_sender?: boolean;
+  deleted_for_recipient?: boolean;
+  deleted_for_everyone?: boolean;
 };
 
-/**
- * Conversation profiles use the same profile shape
- * as the rest of the application.
- *
- * This prevents type mismatches when a conversation
- * profile is passed into components such as Avatar.
- */
-export type ConversationProfile = Profile;
+export type ConversationProfile =
+  Profile;
 
 type MessagesResponse = {
   messages?: ConversationMessage[];
@@ -53,6 +51,12 @@ type MessagesResponse = {
 
 type SendMessageResponse = {
   message?: ConversationMessage;
+};
+
+type DeleteMessageResponse = {
+  success?: boolean;
+  mode?: "me" | "everyone";
+  message_id?: string;
 };
 
 type UseMessagingOptions = {
@@ -142,7 +146,7 @@ export function useMessaging({
         }
 
         await fetch(
-          "/api/presence",
+          API.presence,
           {
             method: "POST",
             headers: {
@@ -357,11 +361,6 @@ export function useMessaging({
           profile,
         );
 
-        /**
-         * Profile already contains all fields
-         * required by ConversationProfile because
-         * ConversationProfile is now an alias of Profile.
-         */
         setConversationProfile(
           profile,
         );
@@ -643,6 +642,186 @@ export function useMessaging({
       updatePresence,
     ]);
 
+  /* =========================================================
+     DELETE MESSAGE
+     ========================================================= */
+
+  const deleteMessage =
+    useCallback(
+      async (
+        messageId: string,
+        mode: "me" | "everyone",
+      ): Promise<boolean> => {
+        if (!messageId) {
+          console.error(
+            "Delete message called without a message ID.",
+          );
+
+          setStatus({
+            text:
+              "The message could not be identified.",
+            type: "error",
+          });
+
+          return false;
+        }
+
+        if (!backendConnected) {
+          setStatus({
+            text:
+              "The messaging service is currently unavailable.",
+            type: "error",
+          });
+
+          return false;
+        }
+
+        if (!activeProfile) {
+          setStatus({
+            text:
+              "No conversation is currently open.",
+            type: "error",
+          });
+
+          return false;
+        }
+
+        try {
+          console.log(
+            "Deleting message:",
+            {
+              messageId,
+              mode,
+              conversation:
+                activeProfile.profile_id,
+            },
+          );
+
+          const response =
+            await apiRequest<DeleteMessageResponse>(
+              API.messages,
+              {
+                method: "DELETE",
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+                body: JSON.stringify({
+                  message_id:
+                    messageId,
+                  mode,
+                }),
+              },
+            );
+
+          console.log(
+            "Delete response:",
+            response,
+          );
+
+          /*
+           * The API must explicitly confirm
+           * that the deletion succeeded.
+           */
+          if (
+            response.success !== true
+          ) {
+            throw new Error(
+              "The server did not confirm the message deletion.",
+            );
+          }
+
+          /*
+           * Make sure the server deleted
+           * the exact message we requested.
+           */
+          if (
+            response.message_id &&
+            response.message_id !==
+              messageId
+          ) {
+            throw new Error(
+              "The server returned an unexpected message ID.",
+            );
+          }
+
+          /*
+           * Remove the message immediately
+           * from the local conversation.
+           *
+           * IMPORTANT:
+           *
+           * We intentionally DO NOT call
+           * loadMessages() here.
+           *
+           * The DELETE request has already
+           * succeeded. Immediately performing
+           * another GET can race with the
+           * database update and make a deleted
+           * message appear again.
+           */
+          setMessages(
+            (previous) =>
+              previous.filter(
+                (message) =>
+                  message.id !==
+                  messageId,
+              ),
+          );
+
+          /*
+           * Recalculate the count from the
+           * current conversation state rather
+           * than blindly decrementing it.
+           */
+          setCount(
+            (previous) =>
+              Math.max(
+                0,
+                previous - 1,
+              ),
+          );
+
+          setStatus({
+            text:
+              mode === "everyone"
+                ? "Message deleted for everyone."
+                : "Message deleted for you.",
+            type: "success",
+          });
+
+          console.log(
+            "Message deletion completed successfully:",
+            {
+              messageId,
+              mode,
+            },
+          );
+
+          return true;
+        } catch (error) {
+          console.error(
+            "Failed to delete message:",
+            error,
+          );
+
+          setStatus({
+            text:
+              error instanceof Error
+                ? error.message
+                : "The message could not be deleted.",
+            type: "error",
+          });
+
+          return false;
+        }
+      },
+      [
+        activeProfile,
+        backendConnected,
+      ],
+    );
+
   const refreshMessages =
     useCallback(() => {
       if (
@@ -701,6 +880,7 @@ export function useMessaging({
     chooseAsset,
     removeAsset,
     sendMessage,
+    deleteMessage,
     refreshMessages,
     reset,
   };

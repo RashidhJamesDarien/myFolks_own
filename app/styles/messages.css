@@ -1,13 +1,11 @@
 /* =========================================================
    MESSAGES
    Theme-aware messaging interface.
-
-   All visual values intentionally use the global design
-   tokens from tokens.css so light and dark mode stay
-   consistent with the rest of myFolks.
    ========================================================= */
 
 .myfolks-messages {
+  position: relative;
+
   width: 100%;
   max-width: 1240px;
   height: calc(100vh - 150px);
@@ -170,7 +168,6 @@
 
 .avatar-wrap {
   position: relative;
-
   flex: 0 0 auto;
 }
 
@@ -195,7 +192,6 @@
 
 .conversation-copy {
   min-width: 0;
-
   flex: 1;
 }
 
@@ -297,7 +293,6 @@
 
 .header-avatar {
   position: relative;
-
   flex: 0 0 auto;
 }
 
@@ -322,7 +317,6 @@
 
 .header-copy {
   min-width: 0;
-
   flex: 1;
 }
 
@@ -496,6 +490,8 @@
   width: 100%;
 
   display: flex;
+
+  -webkit-touch-callout: none;
 }
 
 .message-row.received {
@@ -517,6 +513,8 @@
   line-height: 1.5;
 
   word-break: break-word;
+
+  user-select: text;
 }
 
 .message-row.received .message-bubble {
@@ -621,6 +619,90 @@
 
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* =========================================================
+   MESSAGE CONTEXT MENU
+   ========================================================= */
+
+.message-context-menu {
+  position: fixed;
+  z-index: 1000;
+
+  width: 220px;
+
+  padding: 6px;
+
+  border: 1px solid var(--line);
+  border-radius: 15px;
+
+  background: var(--surface-raised);
+
+  box-shadow: var(--shadow);
+
+  animation: message-context-menu-in 120ms ease;
+}
+
+.message-context-item {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 10px 11px;
+
+  border: 0;
+  border-radius: 10px;
+
+  background: transparent;
+  color: var(--ink);
+
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+
+.message-context-item:hover {
+  background: var(--surface-info);
+}
+
+.message-context-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.message-context-item.danger {
+  color: var(--danger);
+}
+
+.message-context-item.danger:hover {
+  background: color-mix(
+    in srgb,
+    var(--danger) 10%,
+    transparent
+  );
+}
+
+@keyframes message-context-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* =========================================================
@@ -858,12 +940,6 @@
     padding: 10px;
   }
 
-  /*
-   * MOBILE LIST STATE
-   *
-   * When no conversation is open, the connected
-   * people list fills the available space.
-   */
   .message-panel {
     display: flex;
 
@@ -872,23 +948,11 @@
     min-height: 0;
   }
 
-  /*
-   * MOBILE CONVERSATION STATE
-   *
-   * When a conversation is active, hide the
-   * connected list so the conversation gets
-   * the complete mobile viewport.
-   */
-  .myfolks-messages:has(
-    .conversation-panel.mobile-active
-  ) .message-panel {
+  .myfolks-messages.mobile-chat-open
+    .message-panel {
     display: none;
   }
 
-  /*
-   * A conversation is hidden until the user
-   * selects someone.
-   */
   .conversation-panel {
     display: none;
 
@@ -897,7 +961,8 @@
     min-height: 0;
   }
 
-  .conversation-panel.mobile-active {
+  .myfolks-messages.mobile-chat-open
+    .conversation-panel {
     display: flex;
   }
 
@@ -913,6 +978,13 @@
 
   .message-bubble {
     max-width: 84%;
+  }
+
+  .message-context-menu {
+    width: min(
+      220px,
+      calc(100vw - 20px)
+    );
   }
 
   .composer {
@@ -939,7 +1011,89 @@
   .attachment-card,
   .file-button,
   .send-button,
-  .composer-row {
+  .composer-row,
+  .message-context-menu,
+  .message-context-item {
     transition: none;
+    animation: none;
+  }
+}
+
+.message-delete-trigger {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  background: transparent;
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.message-delete-trigger:hover {
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.message-delete-trigger:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.message-row:hover .message-delete-trigger {
+  opacity: 1;
+}
+
+/* Keep the trash icon on the LEFT of every bubble */
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.message-row .message-delete-trigger {
+  order: 1;
+}
+
+.message-row .message-bubble {
+  order: 2;
+}
+
+/*
+ * Received messages stay on the left.
+ */
+.message-row.received {
+  justify-content: flex-start;
+}
+
+/*
+ * Sent messages stay on the right, but the trash
+ * icon remains immediately to the LEFT of the bubble.
+ */
+.message-row.sent {
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .message-delete-trigger {
+    opacity: 0.65;
+  }
+
+  .message-delete-trigger:active {
+    background: var(--surface-soft);
+    color: var(--text-primary);
+    transform: scale(0.94);
   }
 }

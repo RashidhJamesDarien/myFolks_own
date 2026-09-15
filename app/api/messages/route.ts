@@ -18,6 +18,37 @@ type LastSeenVisibility =
   | "friends"
   | "nobody";
 
+type DeleteMode =
+  | "me"
+  | "everyone";
+
+type MessageRow = {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  text: string;
+  message_asset_url: string | null;
+  message_asset_name: string | null;
+  message_asset_type: string | null;
+  message_asset_size: number | null;
+  created_at: string;
+  deleted_for_sender: boolean;
+  deleted_for_recipient: boolean;
+  deleted_for_everyone: boolean;
+};
+
+type MessageInsertRow = MessageRow;
+
+type MessageDeletionRow = Pick<
+  MessageRow,
+  | "id"
+  | "sender_id"
+  | "recipient_id"
+  | "deleted_for_sender"
+  | "deleted_for_recipient"
+  | "deleted_for_everyone"
+>;
+
 function required(
   value: string | undefined,
   name: string,
@@ -137,10 +168,15 @@ function normalizeMessage(
         : undefined,
 
     sender_id:
-      message.sender_id,
+      typeof message.sender_id === "string"
+        ? message.sender_id
+        : "",
 
     recipient_id:
-      message.recipient_id,
+      typeof message.recipient_id ===
+      "string"
+        ? message.recipient_id
+        : "",
 
     text:
       typeof message.text === "string"
@@ -174,7 +210,16 @@ function normalizeMessage(
     created_at:
       typeof message.created_at === "string"
         ? message.created_at
-        : undefined,
+        : "",
+
+    deleted_for_sender:
+      message.deleted_for_sender === true,
+
+    deleted_for_recipient:
+      message.deleted_for_recipient === true,
+
+    deleted_for_everyone:
+      message.deleted_for_everyone === true,
   };
 }
 
@@ -228,6 +273,10 @@ async function canSeeLastSeen(
     profileId,
   );
 }
+
+/* =========================================================
+   GET MESSAGES
+   ========================================================= */
 
 export async function GET(
   request: Request,
@@ -326,13 +375,26 @@ export async function GET(
     }
 
     const {
-      data: messages,
+      data: rawMessages,
       error: messagesError,
     } =
       await admin
         .from("messages")
         .select(
-          "id,sender_id,recipient_id,text,message_asset_url,message_asset_name,message_asset_type,message_asset_size,created_at",
+          [
+            "id",
+            "sender_id",
+            "recipient_id",
+            "text",
+            "message_asset_url",
+            "message_asset_name",
+            "message_asset_type",
+            "message_asset_size",
+            "created_at",
+            "deleted_for_sender",
+            "deleted_for_recipient",
+            "deleted_for_everyone",
+          ].join(","),
         )
         .or(
           `and(sender_id.eq.${user.id},recipient_id.eq.${profileId}),and(sender_id.eq.${profileId},recipient_id.eq.${user.id})`,
@@ -348,6 +410,35 @@ export async function GET(
       throw messagesError;
     }
 
+    const allMessages =
+      (rawMessages as unknown as MessageRow[]) ??
+      [];
+
+    /*
+     * Deleted messages are removed from the
+     * conversation view according to the
+     * deletion flags.
+     */
+    const visibleMessages =
+      allMessages.filter(
+        (message) => {
+          if (
+            message.deleted_for_everyone
+          ) {
+            return false;
+          }
+
+          if (
+            message.sender_id ===
+            user.id
+          ) {
+            return !message.deleted_for_sender;
+          }
+
+          return !message.deleted_for_recipient;
+        },
+      );
+
     const visibility =
       (recipient.last_seen_visibility ??
         "friends") as LastSeenVisibility;
@@ -361,10 +452,10 @@ export async function GET(
       );
 
     const normalizedMessages =
-      (messages ?? []).map(
+      visibleMessages.map(
         (message) =>
           normalizeMessage(
-            message as Record<
+            message as unknown as Record<
               string,
               unknown
             >,
@@ -417,6 +508,10 @@ export async function GET(
     );
   }
 }
+
+/* =========================================================
+   SEND MESSAGE
+   ========================================================= */
 
 export async function POST(
   request: Request,
@@ -549,22 +644,13 @@ export async function POST(
     const admin =
       createAdminClient();
 
-    /**
-     * Verify that the recipient profile exists.
-     *
-     * Do not query `allows_messages` here because
-     * that column does not exist in the current
-     * profiles table.
-     */
     const {
       data: recipient,
       error: recipientError,
     } =
       await admin
         .from("profiles")
-        .select(
-          "id",
-        )
+        .select("id")
         .eq("id", profileId)
         .maybeSingle();
 
@@ -582,10 +668,6 @@ export async function POST(
       );
     }
 
-    /**
-     * Messaging is currently restricted to
-     * accepted friends.
-     */
     const friends =
       await areFriends(
         admin,
@@ -603,11 +685,8 @@ export async function POST(
       );
     }
 
-    /**
-     * Insert the message.
-     */
     const {
-      data,
+      data: rawMessage,
       error,
     } =
       await admin
@@ -634,7 +713,20 @@ export async function POST(
             assetSize,
         })
         .select(
-          "id,sender_id,recipient_id,text,message_asset_url,message_asset_name,message_asset_type,message_asset_size,created_at",
+          [
+            "id",
+            "sender_id",
+            "recipient_id",
+            "text",
+            "message_asset_url",
+            "message_asset_name",
+            "message_asset_type",
+            "message_asset_size",
+            "created_at",
+            "deleted_for_sender",
+            "deleted_for_recipient",
+            "deleted_for_everyone",
+          ].join(","),
         )
         .single();
 
@@ -642,11 +734,14 @@ export async function POST(
       throw error;
     }
 
+    const data =
+      rawMessage as unknown as MessageInsertRow;
+
     return NextResponse.json(
       {
         message:
           normalizeMessage(
-            data as Record<
+            data as unknown as Record<
               string,
               unknown
             >,
@@ -664,6 +759,313 @@ export async function POST(
       {
         error:
           "Message could not be sent.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+/* =========================================================
+   DELETE MESSAGE
+   ========================================================= */
+
+export async function DELETE(
+  request: Request,
+) {
+  try {
+    const user =
+      await authenticate(request);
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Authentication required.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const body =
+      (await request.json()) as {
+        message_id?: unknown;
+        mode?: unknown;
+      };
+
+    const messageId =
+      typeof body.message_id ===
+      "string"
+        ? body.message_id.trim()
+        : "";
+
+    const mode =
+      typeof body.mode === "string"
+        ? (body.mode as DeleteMode)
+        : "";
+
+    if (
+      !messageId ||
+      !isUuid(messageId)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "A valid message_id is required.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      mode !== "me" &&
+      mode !== "everyone"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "A valid deletion mode is required.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const admin =
+      createAdminClient();
+
+    /*
+     * Load the message first so we can determine:
+     *
+     * 1. Whether it exists.
+     * 2. Whether the authenticated user is involved.
+     * 3. Whether the user is the sender.
+     */
+    const {
+      data: rawMessage,
+      error: messageError,
+    } =
+      await admin
+        .from("messages")
+        .select(
+          [
+            "id",
+            "sender_id",
+            "recipient_id",
+            "deleted_for_sender",
+            "deleted_for_recipient",
+            "deleted_for_everyone",
+          ].join(","),
+        )
+        .eq("id", messageId)
+        .maybeSingle();
+
+    if (messageError) {
+      throw messageError;
+    }
+
+    if (!rawMessage) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Message not found.",
+        },
+        { status: 404 },
+      );
+    }
+
+    const message =
+      rawMessage as unknown as MessageDeletionRow;
+
+    const isSender =
+      message.sender_id ===
+      user.id;
+
+    const isRecipient =
+      message.recipient_id ===
+      user.id;
+
+    if (
+      !isSender &&
+      !isRecipient
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "You do not have permission to delete this message.",
+        },
+        { status: 403 },
+      );
+    }
+
+    /*
+     * Delete for everyone is only available
+     * to the sender.
+     */
+    if (
+      mode === "everyone" &&
+      !isSender
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Only the sender can delete a message for everyone.",
+        },
+        { status: 403 },
+      );
+    }
+
+    /*
+     * If the message is already deleted for everyone,
+     * there is nothing more to update.
+     */
+    if (
+      message.deleted_for_everyone
+    ) {
+      return NextResponse.json({
+        success: true,
+        mode,
+        message_id:
+          message.id,
+        already_deleted: true,
+      });
+    }
+
+    /*
+     * Determine exactly which deletion flag belongs
+     * to the authenticated user.
+     */
+    const update: Record<
+      string,
+      boolean
+    > =
+      mode === "everyone"
+        ? {
+            deleted_for_everyone:
+              true,
+          }
+        : isSender
+        ? {
+            deleted_for_sender:
+              true,
+          }
+        : {
+            deleted_for_recipient:
+              true,
+          };
+
+    /*
+     * IMPORTANT:
+     *
+     * Return the updated database row.
+     *
+     * This lets us verify that Supabase actually
+     * persisted the deletion flag.
+     */
+    const {
+      data: updatedRawMessage,
+      error: updateError,
+    } =
+      await admin
+        .from("messages")
+        .update(update)
+        .eq("id", messageId)
+        .select(
+          [
+            "id",
+            "sender_id",
+            "recipient_id",
+            "deleted_for_sender",
+            "deleted_for_recipient",
+            "deleted_for_everyone",
+          ].join(","),
+        )
+        .single();
+
+    if (updateError) {
+      console.error(
+        "Supabase message deletion update failed:",
+        updateError,
+      );
+
+      throw updateError;
+    }
+
+    if (!updatedRawMessage) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "The message could not be updated.",
+        },
+        { status: 500 },
+      );
+    }
+
+    const updatedMessage =
+      updatedRawMessage as unknown as MessageDeletionRow;
+
+    /*
+     * Verify the exact flag we intended to change.
+     */
+    const deletionPersisted =
+      mode === "everyone"
+        ? updatedMessage.deleted_for_everyone ===
+          true
+        : isSender
+        ? updatedMessage.deleted_for_sender ===
+          true
+        : updatedMessage.deleted_for_recipient ===
+          true;
+
+    if (!deletionPersisted) {
+      console.error(
+        "Message deletion was not persisted correctly.",
+        {
+          messageId,
+          mode,
+          userId: user.id,
+          updatedMessage,
+        },
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "The message deletion was not persisted.",
+        },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      mode,
+      message_id:
+        updatedMessage.id,
+      deleted_for_sender:
+        updatedMessage.deleted_for_sender,
+      deleted_for_recipient:
+        updatedMessage.deleted_for_recipient,
+      deleted_for_everyone:
+        updatedMessage.deleted_for_everyone,
+    });
+  } catch (error) {
+    console.error(
+      "DELETE /api/messages failed:",
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          "Message could not be deleted.",
       },
       { status: 500 },
     );

@@ -30,7 +30,11 @@ import {
   useProfileEditor,
 } from "@/components/home/hooks/useProfileEditor";
 
-import { API, DEFAULT_SETTINGS } from "@/components/home/constants";
+import {
+  API,
+  DEFAULT_SETTINGS,
+} from "@/components/home/constants";
+
 import { apiRequest } from "@/components/home/utils";
 
 import type {
@@ -42,27 +46,50 @@ import type {
 } from "@/components/home/types";
 
 export default function Home() {
-  const [view, setView] = useState<View>("discover");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [dialog, setDialog] = useState<ConfirmDialogState>(null);
+  const [view, setView] =
+    useState<View>("discover");
 
-  const [blockedProfiles, setBlockedProfiles] = useState<
-    Set<string>
-  >(new Set());
+  const [
+    mobileMenuOpen,
+    setMobileMenuOpen,
+  ] = useState(false);
 
-  const [settings, setSettings] = useState<Settings>(
-    DEFAULT_SETTINGS,
+  const [dialog, setDialog] =
+    useState<ConfirmDialogState>(
+      null,
+    );
+
+  const [
+    blockedProfiles,
+    setBlockedProfiles,
+  ] = useState<Set<string>>(
+    new Set(),
   );
 
-  const [settingsStatus, setSettingsStatus] =
-    useState<StatusValue>(null);
+  const [settings, setSettings] =
+    useState<Settings>(
+      DEFAULT_SETTINGS,
+    );
 
-  const [friendSearch, setFriendSearch] = useState("");
+  const [
+    settingsStatus,
+    setSettingsStatus,
+  ] = useState<StatusValue>(
+    null,
+  );
+
+  const [
+    friendSearch,
+    setFriendSearch,
+  ] = useState("");
 
   const theme = useTheme();
 
-  const { authLoading, authenticated, backendConnected } =
-    useSupabaseAuth();
+  const {
+    authLoading,
+    authenticated,
+    backendConnected,
+  } = useSupabaseAuth();
 
   const {
     currentProfile,
@@ -70,87 +97,129 @@ export default function Home() {
     profileConfirmed,
     setProfileConfirmed,
     resetProfile,
-  } = useCurrentProfile(authenticated);
+  } =
+    useCurrentProfile(
+      authenticated,
+    );
 
-  const discovery = useDiscovery({
-    authenticated,
-    backendConnected,
-    currentProfileId: currentProfile?.profile_id,
-    blockedProfiles,
-  });
+  const discovery =
+    useDiscovery({
+      authenticated,
+      backendConnected,
+      currentProfileId:
+        currentProfile?.profile_id,
+      blockedProfiles,
+    });
 
-  const relationships = useRelationships({
-    authenticated,
-    backendConnected,
-  });
+  const relationships =
+    useRelationships({
+      authenticated,
+      backendConnected,
+    });
 
-  const messaging = useMessaging({
-    backendConnected,
-    isAcceptedFriend: relationships.isAcceptedFriend,
-  });
+  const messaging =
+    useMessaging({
+      backendConnected,
+      isAcceptedFriend:
+        relationships.isAcceptedFriend,
+    });
 
-  const showView = (nextView: View) => {
+  const showView = (
+    nextView: View,
+  ) => {
     setView(nextView);
     setMobileMenuOpen(false);
   };
 
-  const profileCreator = useProfileCreator({
-    backendConnected,
-    onCreated: (profile) => {
-      setCurrentProfile(profile);
-      setProfileConfirmed(true);
+  const profileCreator =
+    useProfileCreator({
+      backendConnected,
+      onCreated: (profile) => {
+        setCurrentProfile(
+          profile,
+        );
+
+        setProfileConfirmed(
+          true,
+        );
+
+        discovery.refresh();
+        showView("profile");
+      },
+    });
+
+  const profileEditor =
+    useProfileEditor({
+      currentProfile,
+      onSaved: (profile) => {
+        setCurrentProfile(
+          profile,
+        );
+
+        discovery.refresh();
+      },
+    });
+
+  const refreshRelationshipData =
+    async () => {
+      await relationships.loadFriendRequestStatuses();
+      await relationships.loadFriends();
+
       discovery.refresh();
-      showView("profile");
-    },
-  });
-
-  const profileEditor = useProfileEditor({
-    currentProfile,
-    onSaved: (profile) => {
-      setCurrentProfile(profile);
-      discovery.refresh();
-    },
-  });
-
-  /** Reload friends, request statuses, and the discovery pool. */
-  const refreshRelationshipData = async () => {
-    await relationships.loadFriendRequestStatuses();
-    await relationships.loadFriends();
-
-    discovery.refresh();
-  };
+    };
 
   const openConfirmation = (
     title: string,
     message: string,
     action: () => Promise<void>,
-  ) => setDialog({ title, message, action });
+  ) =>
+    setDialog({
+      title,
+      message,
+      action,
+    });
 
-  const reportProfile = async (profile: Profile) => {
+  const reportProfile = async (
+    profile: Profile,
+  ) => {
     try {
       if (!backendConnected) {
-        throw new Error("backend_unavailable");
+        throw new Error(
+          "backend_unavailable",
+        );
       }
 
-      await apiRequest(API.reports, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reported_profile_id: profile.profile_id,
-        }),
-      });
+      await apiRequest(
+        API.reports,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            reported_profile_id:
+              profile.profile_id,
+          }),
+        },
+      );
 
       discovery.setNotice({
-        text: "Report submitted for review.",
+        text:
+          "Report submitted for review.",
         type: "success",
       });
     } catch (error) {
-      console.error("Failed to report profile:", error);
+      console.error(
+        "Failed to report profile:",
+        error,
+      );
 
       discovery.setNotice({
         text:
           error instanceof Error &&
-          error.message !== "backend_unavailable"
+          error.message !==
+            "backend_unavailable"
             ? error.message
             : "The report could not be saved remotely.",
         type: "error",
@@ -158,27 +227,44 @@ export default function Home() {
     }
   };
 
-  const blockProfile = async (profile: Profile) => {
+  const blockProfile = async (
+    profile: Profile,
+  ) => {
     try {
       if (!backendConnected) {
-        throw new Error("backend_unavailable");
+        throw new Error(
+          "backend_unavailable",
+        );
       }
 
-      await apiRequest(API.blocks, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          blocked_profile_id: profile.profile_id,
-        }),
-      });
+      await apiRequest(
+        API.blocks,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            blocked_profile_id:
+              profile.profile_id,
+          }),
+        },
+      );
 
-      setBlockedProfiles((previous) => {
-        const next = new Set(previous);
+      setBlockedProfiles(
+        (previous) => {
+          const next = new Set(
+            previous,
+          );
 
-        next.add(profile.profile_id);
+          next.add(
+            profile.profile_id,
+          );
 
-        return next;
-      });
+          return next;
+        },
+      );
 
       discovery.setNotice({
         text: "Profile blocked.",
@@ -188,12 +274,16 @@ export default function Home() {
       discovery.restartDiscovery();
       showView("discover");
     } catch (error) {
-      console.error("Failed to block profile:", error);
+      console.error(
+        "Failed to block profile:",
+        error,
+      );
 
       discovery.setNotice({
         text:
           error instanceof Error &&
-          error.message !== "backend_unavailable"
+          error.message !==
+            "backend_unavailable"
             ? error.message
             : "The block could not be saved remotely.",
         type: "error",
@@ -201,46 +291,71 @@ export default function Home() {
     }
   };
 
-  const addCompletionFriend = async () => {
-    const profile = discovery.completionProfile;
+  const addCompletionFriend =
+    async () => {
+      const profile =
+        discovery.completionProfile;
 
-    if (!profile) return;
+      if (!profile) {
+        return;
+      }
 
-    const { error } = await relationships.sendFriendRequest(
-      profile.profile_id,
+      const { error } =
+        await relationships.sendFriendRequest(
+          profile.profile_id,
+        );
+
+      if (error) {
+        discovery.setNotice({
+          text: error,
+          type: "error",
+        });
+
+        return;
+      }
+
+      discovery.restartDiscovery();
+      showView("discover");
+    };
+
+  const openConversation = (
+    profile: Profile,
+  ) => {
+    if (
+      !relationships.isAcceptedFriend(
+        profile.profile_id,
+      )
+    ) {
+      discovery.setNotice({
+        text:
+          "You can message this person after they accept your friend request.",
+        type: "info",
+      });
+
+      return;
+    }
+
+    if (
+      profile.allows_messages ===
+      false
+    ) {
+      discovery.setNotice({
+        text:
+          "This person is not accepting messages right now.",
+        type: "info",
+      });
+
+      return;
+    }
+
+    messaging.openConversation(
+      profile,
     );
 
-    if (error) {
-      discovery.setNotice({ text: error, type: "error" });
-      return;
-    }
+    discovery.setCompletionProfile(
+      null,
+    );
 
-    discovery.restartDiscovery();
-    showView("discover");
-  };
-
-  /** Open a conversation, explaining why when it isn't allowed. */
-  const openConversation = (profile: Profile) => {
-    if (!relationships.isAcceptedFriend(profile.profile_id)) {
-      discovery.setNotice({
-        text: "You can message this person after they accept your friend request.",
-        type: "info",
-      });
-
-      return;
-    }
-
-    if (profile.allows_messages === false) {
-      discovery.setNotice({
-        text: "This person is not accepting messages right now.",
-        type: "info",
-      });
-
-      return;
-    }
-
-    messaging.openConversation(profile);
-    discovery.setCompletionProfile(null);
     showView("messages");
   };
 
@@ -251,36 +366,58 @@ export default function Home() {
 
     try {
       if (!backendConnected) {
-        throw new Error("backend_unavailable");
+        throw new Error(
+          "backend_unavailable",
+        );
       }
 
-      await apiRequest(API.settings, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          visibility: settings.visibility,
-          profile_interest_display: settings.interestDisplay
-            ? "shown"
-            : "hidden",
-          message_permission: settings.messagePermission,
-          last_seen_visibility: settings.lastSeenVisibility,
-          friend_request_notifications:
-            settings.friendNotifications,
-          message_notifications: settings.messageNotifications,
-        }),
-      });
+      await apiRequest(
+        API.settings,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            visibility:
+              settings.visibility,
+
+            profile_interest_display:
+              settings.interestDisplay
+                ? "shown"
+                : "hidden",
+
+            message_permission:
+              settings.messagePermission,
+
+            last_seen_visibility:
+              settings.lastSeenVisibility,
+
+            friend_request_notifications:
+              settings.friendNotifications,
+
+            message_notifications:
+              settings.messageNotifications,
+          }),
+        },
+      );
 
       setSettingsStatus({
         text: "Settings saved.",
         type: "success",
       });
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      console.error(
+        "Failed to save settings:",
+        error,
+      );
 
       setSettingsStatus({
         text:
           error instanceof Error &&
-          error.message !== "backend_unavailable"
+          error.message !==
+            "backend_unavailable"
             ? error.message
             : "Settings could not be saved remotely. Your current choices remain on this device.",
         type: "error",
@@ -288,26 +425,40 @@ export default function Home() {
     }
   };
 
-  /** Clear every piece of signed-in state. */
   const resetSession = () => {
     resetProfile();
     discovery.reset();
     relationships.reset();
     messaging.reset();
-    profileEditor.setEditing(false);
-    setBlockedProfiles(new Set());
+    profileEditor.setEditing(
+      false,
+    );
+
+    setBlockedProfiles(
+      new Set(),
+    );
+
+    setFriendSearch("");
+    setSettingsStatus(null);
     setView("discover");
+    setMobileMenuOpen(false);
   };
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
+      const { error } =
+        await supabase.auth.signOut();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       resetSession();
     } catch (error) {
-      console.error("Failed to sign out:", error);
+      console.error(
+        "Failed to sign out:",
+        error,
+      );
 
       setSettingsStatus({
         text:
@@ -319,67 +470,92 @@ export default function Home() {
     }
   };
 
-  const deleteAccount = async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  const deleteAccount =
+    async () => {
+      try {
+        const {
+          data: { session },
+        } =
+          await supabase.auth.getSession();
 
-      if (!session?.access_token) {
-        throw new Error("Your session has expired.");
-      }
-
-      const response = await fetch(API.accountDelete, {
-        method: "DELETE",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        let message = "Your account could not be deleted.";
-
-        try {
-          const data = (await response.json()) as {
-            error?: unknown;
-          };
-
-          if (typeof data.error === "string") {
-            message = data.error;
-          }
-        } catch {
-          // Ignore invalid JSON error responses.
+        if (
+          !session?.access_token
+        ) {
+          throw new Error(
+            "Your session has expired.",
+          );
         }
 
-        throw new Error(message);
+        const response =
+          await fetch(
+            API.accountDelete,
+            {
+              method: "DELETE",
+              headers: {
+                Accept:
+                  "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            },
+          );
+
+        if (!response.ok) {
+          let message =
+            "Your account could not be deleted.";
+
+          try {
+            const data =
+              (await response.json()) as {
+                error?: unknown;
+              };
+
+            if (
+              typeof data.error ===
+              "string"
+            ) {
+              message =
+                data.error;
+            }
+          } catch {
+            // Ignore invalid JSON.
+          }
+
+          throw new Error(
+            message,
+          );
+        }
+
+        await supabase.auth.signOut();
+
+        resetSession();
+      } catch (error) {
+        console.error(
+          "Failed to delete account:",
+          error,
+        );
+
+        setSettingsStatus({
+          text:
+            error instanceof Error
+              ? error.message
+              : "Your account could not be deleted. Please try again.",
+          type: "error",
+        });
       }
+    };
 
-      await supabase.auth.signOut();
-
-      resetSession();
-    } catch (error) {
-      console.error("Failed to delete account:", error);
-
-      setSettingsStatus({
-        text:
-          error instanceof Error
-            ? error.message
-            : "Your account could not be deleted. Please try again.",
-        type: "error",
-      });
-    }
-  };
-
-  const confirmSignOut = () =>
-    openConfirmation(
-      "Sign out of myFolks?",
-      "You will be signed out on this device.",
-      signOut,
-    );
+  const confirmSignOut =
+    () =>
+      openConfirmation(
+        "Sign out of myFolks?",
+        "You will be signed out on this device.",
+        signOut,
+      );
 
   if (authLoading) {
-    return <AuthLoadingScreen />;
+    return (
+      <AuthLoadingScreen />
+    );
   }
 
   if (!authenticated) {
@@ -391,116 +567,258 @@ export default function Home() {
       <SiteHeader
         view={view}
         darkMode={theme.darkMode}
-        themeAnimating={theme.themeAnimating}
-        mobileMenuOpen={mobileMenuOpen}
-        profileConfirmed={profileConfirmed}
+        themeAnimating={
+          theme.themeAnimating
+        }
+        mobileMenuOpen={
+          mobileMenuOpen
+        }
+        profileConfirmed={
+          profileConfirmed
+        }
         onNavigate={showView}
         onToggleMobileMenu={() =>
-          setMobileMenuOpen((value) => !value)
+          setMobileMenuOpen(
+            (value) => !value,
+          )
         }
-        onToggleTheme={theme.toggleTheme}
+        onToggleTheme={
+          theme.toggleTheme
+        }
       />
 
       <main className="main-content">
         {view === "discover" && (
           <DiscoverView
-            profiles={discovery.profiles}
-            currentPair={discovery.currentPair}
-            discoverState={discovery.discoverState}
-            progressCurrent={discovery.progressCurrent}
-            progressTotal={discovery.progressTotal}
-            progressPercent={discovery.progressPercent}
-            positiveSelections={discovery.positiveSelections}
+            profiles={
+              discovery.profiles
+            }
+            currentPair={
+              discovery.currentPair
+            }
+            discoverState={
+              discovery.discoverState
+            }
+            progressCurrent={
+              discovery.progressCurrent
+            }
+            progressTotal={
+              discovery.progressTotal
+            }
+            progressPercent={
+              discovery.progressPercent
+            }
+            positiveSelections={
+              discovery.positiveSelections
+            }
             visibleProfilesCount={
               discovery.visibleProfilesCount
             }
             notice={discovery.notice}
-            onChoose={discovery.chooseInterest}
-            onSkip={discovery.skipPair}
-            onReport={reportProfile}
+            onChoose={
+              discovery.chooseInterest
+            }
+            onSkip={
+              discovery.skipPair
+            }
+            onReport={
+              reportProfile
+            }
             onBlock={(profile) =>
               openConfirmation(
                 "Block this person?",
                 "They will no longer appear in your discovery session.",
-                () => blockProfile(profile),
+                () =>
+                  blockProfile(
+                    profile,
+                  ),
               )
             }
-            onRetry={discovery.restartDiscovery}
+            onRetry={
+              discovery.restartDiscovery
+            }
           />
         )}
 
         {view === "friends" && (
           <FriendsView
-            friends={relationships.friends}
+            friends={
+              relationships.friends
+            }
             search={friendSearch}
-            onSearch={setFriendSearch}
-            onOpenMessage={openConversation}
-            onRequestsChanged={refreshRelationshipData}
+            onSearch={
+              setFriendSearch
+            }
+            onOpenMessage={
+              openConversation
+            }
+            onRequestsChanged={
+              refreshRelationshipData
+            }
           />
         )}
 
         {view === "messages" && (
           <MessagesView
-            friends={relationships.friends}
-            activeProfile={messaging.activeProfile}
-            conversationProfile={messaging.conversationProfile}
-            mobileOpen={messaging.open}
-            messageText={messaging.text}
-            messageAsset={messaging.asset}
-            messageStatus={messaging.status}
-            messageSending={messaging.sending}
-            messageLoading={messaging.loadingMessages}
-            messages={messaging.messages}
-            messageCount={messaging.count}
-            fileInputRef={messaging.fileInputRef}
-            onSelect={messaging.openConversation}
-            onBack={() => messaging.setOpen(false)}
-            onTextChange={messaging.changeText}
-            onFile={messaging.chooseAsset}
-            onRemoveAsset={messaging.removeAsset}
-            onSend={messaging.sendMessage}
+            friends={
+              relationships.friends
+            }
+            activeProfile={
+              messaging.activeProfile
+            }
+            conversationProfile={
+              messaging.conversationProfile
+            }
+            mobileOpen={
+              messaging.open
+            }
+            messageText={
+              messaging.text
+            }
+            messageAsset={
+              messaging.asset
+            }
+            messageStatus={
+              messaging.status
+            }
+            messageSending={
+              messaging.sending
+            }
+            messageLoading={
+              messaging.loadingMessages
+            }
+            messages={
+              messaging.messages
+            }
+            messageCount={
+              messaging.count
+            }
+            fileInputRef={
+              messaging.fileInputRef
+            }
+            onSelect={
+              messaging.openConversation
+            }
+            onBack={() =>
+              messaging.setOpen(
+                false,
+              )
+            }
+            onTextChange={
+              messaging.changeText
+            }
+            onFile={
+              messaging.chooseAsset
+            }
+            onRemoveAsset={
+              messaging.removeAsset
+            }
+            onSend={
+              messaging.sendMessage
+            }
+            onDeleteMessage={
+              messaging.deleteMessage
+            }
           />
         )}
 
         {view === "create" && (
           <CreateProfileView
-            profilePhoto={profileCreator.photoFile}
-            profilePhotoUrl={profileCreator.photoUrl}
-            status={profileCreator.photoStatus}
-            formStatus={profileCreator.formStatus}
-            onPhoto={profileCreator.choosePhoto}
-            onRemovePhoto={profileCreator.removePhoto}
-            onSubmit={profileCreator.submit}
+            profilePhoto={
+              profileCreator.photoFile
+            }
+            profilePhotoUrl={
+              profileCreator.photoUrl
+            }
+            status={
+              profileCreator.photoStatus
+            }
+            formStatus={
+              profileCreator.formStatus
+            }
+            onPhoto={
+              profileCreator.choosePhoto
+            }
+            onRemovePhoto={
+              profileCreator.removePhoto
+            }
+            onSubmit={
+              profileCreator.submit
+            }
           />
         )}
 
         {view === "profile" && (
           <ProfileView
-            profile={currentProfile}
-            editing={profileEditor.editing}
-            editFullName={profileEditor.fullName}
-            editUsername={profileEditor.username}
-            editBio={profileEditor.bio}
-            editLocation={profileEditor.location}
-            editInterests={profileEditor.interests}
-            editCustomInterest={profileEditor.customInterest}
-            editProfilePhotoUrl={profileEditor.photoUrl}
-            editProfileStatus={profileEditor.status}
-            editProfileSaving={profileEditor.saving}
-            onStartEdit={profileEditor.begin}
-            onCancelEdit={profileEditor.cancel}
-            onFullNameChange={profileEditor.setFullName}
-            onUsernameChange={profileEditor.setUsername}
-            onBioChange={profileEditor.setBio}
-            onLocationChange={profileEditor.setLocation}
-            onToggleInterest={profileEditor.toggleInterest}
+            profile={
+              currentProfile
+            }
+            editing={
+              profileEditor.editing
+            }
+            editFullName={
+              profileEditor.fullName
+            }
+            editUsername={
+              profileEditor.username
+            }
+            editBio={
+              profileEditor.bio
+            }
+            editLocation={
+              profileEditor.location
+            }
+            editInterests={
+              profileEditor.interests
+            }
+            editCustomInterest={
+              profileEditor.customInterest
+            }
+            editProfilePhotoUrl={
+              profileEditor.photoUrl
+            }
+            editProfileStatus={
+              profileEditor.status
+            }
+            editProfileSaving={
+              profileEditor.saving
+            }
+            onStartEdit={
+              profileEditor.begin
+            }
+            onCancelEdit={
+              profileEditor.cancel
+            }
+            onFullNameChange={
+              profileEditor.setFullName
+            }
+            onUsernameChange={
+              profileEditor.setUsername
+            }
+            onBioChange={
+              profileEditor.setBio
+            }
+            onLocationChange={
+              profileEditor.setLocation
+            }
+            onToggleInterest={
+              profileEditor.toggleInterest
+            }
             onCustomInterestChange={
               profileEditor.setCustomInterest
             }
-            onPhoto={profileEditor.choosePhoto}
-            onRemovePhoto={profileEditor.removePhoto}
-            onSave={profileEditor.save}
-            onSignOut={confirmSignOut}
+            onPhoto={
+              profileEditor.choosePhoto
+            }
+            onRemovePhoto={
+              profileEditor.removePhoto
+            }
+            onSave={
+              profileEditor.save
+            }
+            onSignOut={
+              confirmSignOut
+            }
           />
         )}
 
@@ -508,7 +826,9 @@ export default function Home() {
           <SettingsView
             settings={settings}
             status={settingsStatus}
-            blockedCount={blockedProfiles.size}
+            blockedCount={
+              blockedProfiles.size
+            }
             onChange={setSettings}
             onSave={saveSettings}
             onDelete={() =>
@@ -518,7 +838,9 @@ export default function Home() {
                 deleteAccount,
               )
             }
-            onSignOut={confirmSignOut}
+            onSignOut={
+              confirmSignOut
+            }
           />
         )}
       </main>
@@ -527,15 +849,27 @@ export default function Home() {
 
       {discovery.completionProfile && (
         <CompletionModal
-          profile={discovery.completionProfile}
-          requestStatus={relationships.getStatus(
-            discovery.completionProfile.profile_id,
-          )}
-          onAddFriend={addCompletionFriend}
-          onSendMessage={() =>
-            openConversation(discovery.completionProfile!)
+          profile={
+            discovery.completionProfile
           }
-          onContinue={discovery.restartDiscovery}
+          requestStatus={
+            relationships.getStatus(
+              discovery
+                .completionProfile
+                .profile_id,
+            )
+          }
+          onAddFriend={
+            addCompletionFriend
+          }
+          onSendMessage={() =>
+            openConversation(
+              discovery.completionProfile!,
+            )
+          }
+          onContinue={
+            discovery.restartDiscovery
+          }
         />
       )}
 
@@ -543,13 +877,18 @@ export default function Home() {
         <ConfirmDialog
           title={dialog.title}
           message={dialog.message}
-          onCancel={() => setDialog(null)}
+          onCancel={() =>
+            setDialog(null)
+          }
           onConfirm={async () => {
-            const action = dialog.action;
+            const action =
+              dialog.action;
 
             setDialog(null);
 
-            if (action) await action();
+            if (action) {
+              await action();
+            }
           }}
         />
       )}

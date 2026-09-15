@@ -1,11 +1,16 @@
 "use client";
 
 import React from "react";
+
 import { Eyebrow } from "./Eyebrow";
 import { StatusMessage } from "./StatusMessage";
 import { RadioGrid } from "./RadioGrid";
 import { ToggleRow } from "./ToggleRow";
-import type { Settings, StatusValue } from "./types";
+
+import type {
+  Settings,
+  StatusValue,
+} from "./types";
 
 export function SettingsView({
   settings,
@@ -19,7 +24,9 @@ export function SettingsView({
   settings: Settings;
   status: StatusValue;
   blockedCount: number;
-  onChange: (settings: Settings) => void;
+  onChange: (
+    settings: Settings,
+  ) => void;
   onSave: (
     event: React.FormEvent<HTMLFormElement>,
   ) => void;
@@ -29,13 +36,17 @@ export function SettingsView({
   return (
     <section className="view-panel">
       <div className="settings-heading">
-        <Eyebrow>Your controls</Eyebrow>
+        <Eyebrow>
+          Your controls
+        </Eyebrow>
 
         <h1>Settings</h1>
 
         <p className="section-copy">
-          Choose how you appear, who can contact you, and
-          how myFolks communicates with you.
+          Choose how you appear, who
+          can contact you, and how
+          myFolks communicates with
+          you.
         </p>
       </div>
 
@@ -43,10 +54,14 @@ export function SettingsView({
         className="settings-form"
         onSubmit={onSave}
       >
-        <SettingsSection title="Profile visibility">
+        <SettingsSection
+          title="Profile visibility"
+        >
           <RadioGrid
             name="visibility"
-            value={settings.visibility}
+            value={
+              settings.visibility
+            }
             options={[
               [
                 "published",
@@ -60,80 +75,119 @@ export function SettingsView({
             onChange={(value) =>
               onChange({
                 ...settings,
-                visibility: value,
+                visibility:
+                  value,
               })
             }
           />
         </SettingsSection>
 
-        <SettingsSection title="Last seen visibility">
+        <SettingsSection
+          title="Last seen visibility"
+        >
           <RadioGrid
             name="lastSeenVisibility"
-            value={settings.lastSeenVisibility}
+            value={
+              settings.lastSeenVisibility
+            }
             options={[
-              ["everyone", "Everyone"],
-              ["connections", "Connections"],
-              ["nobody", "Nobody"],
+              [
+                "everyone",
+                "Everyone",
+              ],
+              [
+                "friends",
+                "Friends",
+              ],
+              [
+                "nobody",
+                "Nobody",
+              ],
             ]}
             onChange={(value) =>
               onChange({
                 ...settings,
-                lastSeenVisibility: value,
+                lastSeenVisibility:
+                  value as Settings["lastSeenVisibility"],
               })
             }
           />
         </SettingsSection>
 
-        <SettingsSection title="Featured interest display">
+        <SettingsSection
+          title="Featured interest display"
+        >
           <ToggleRow
             label="Show my featured interest in Discover"
-            checked={settings.interestDisplay}
+            checked={
+              settings.interestDisplay
+            }
             onChange={(checked) =>
               onChange({
                 ...settings,
-                interestDisplay: checked,
+                interestDisplay:
+                  checked,
               })
             }
           />
         </SettingsSection>
 
-        <SettingsSection title="Message permissions">
+        <SettingsSection
+          title="Message permissions"
+        >
           <RadioGrid
             name="messagePermission"
-            value={settings.messagePermission}
+            value={
+              settings.messagePermission
+            }
             options={[
-              ["friends_only", "Friends only"],
-              ["requests", "Allow message requests"],
+              [
+                "friends_only",
+                "Friends only",
+              ],
+              [
+                "requests",
+                "Allow message requests",
+              ],
             ]}
             onChange={(value) =>
               onChange({
                 ...settings,
-                messagePermission: value,
+                messagePermission:
+                  value,
               })
             }
           />
         </SettingsSection>
 
-        <SettingsSection title="Notifications">
+        <SettingsSection
+          title="Notifications"
+        >
           <div className="toggle-stack">
             <ToggleRow
               label="Friend requests"
-              checked={settings.friendNotifications}
+              checked={
+                settings.friendNotifications
+              }
               onChange={(checked) =>
                 onChange({
                   ...settings,
-                  friendNotifications: checked,
+                  friendNotifications:
+                    checked,
                 })
               }
             />
 
             <ToggleRow
               label="Messages"
-              checked={settings.messageNotifications}
+              checked={
+                settings.messageNotifications
+              }
               onChange={(checked) =>
                 onChange({
                   ...settings,
-                  messageNotifications: checked,
+                  messageNotifications:
+                    checked,
                 })
               }
             />
@@ -156,14 +210,17 @@ export function SettingsView({
       </form>
 
       <div className="safety-card">
-        <h2>Privacy and safety</h2>
+        <h2>
+          Privacy and safety
+        </h2>
 
         <div className="safety-grid">
           <button
             type="button"
             className="safety-button lavender-bg"
           >
-            Blocked profiles ({blockedCount})
+            Blocked profiles (
+            {blockedCount})
           </button>
 
           <button

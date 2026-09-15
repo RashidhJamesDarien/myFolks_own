@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import {
@@ -12,6 +13,8 @@ import {
   Check,
   FileText,
   Paperclip,
+  Trash2,
+  X,
 } from "lucide-react";
 
 import { Avatar } from "./Avatar";
@@ -49,32 +52,11 @@ type MessagesViewProps = {
   ) => void;
   onRemoveAsset: () => void;
   onSend: () => void;
+  onDeleteMessage: (
+    messageId: string,
+    mode: "me" | "everyone",
+  ) => Promise<boolean>;
 };
-
-function getInitials(
-  profile:
-    | Profile
-    | ConversationProfile
-    | null,
-) {
-  if (!profile) {
-    return "?";
-  }
-
-  const value =
-    profile.display_name?.trim() ||
-    profile.username?.trim() ||
-    "?";
-
-  return value
-    .split(/\s+/)
-    .slice(0, 2)
-    .map(
-      (part) =>
-        part[0]?.toUpperCase() ?? "",
-    )
-    .join("");
-}
 
 function formatTime(timestamp?: string) {
   if (!timestamp) {
@@ -87,13 +69,10 @@ function formatTime(timestamp?: string) {
     return "";
   }
 
-  return new Intl.DateTimeFormat(
-    undefined,
-    {
-      hour: "numeric",
-      minute: "2-digit",
-    },
-  ).format(date);
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function getLastSeenLabel(
@@ -210,6 +189,7 @@ export function MessagesView({
   onFile,
   onRemoveAsset,
   onSend,
+  onDeleteMessage,
 }: MessagesViewProps) {
   const bottomRef =
     useRef<HTMLDivElement | null>(
@@ -218,6 +198,38 @@ export function MessagesView({
 
   const messagesAreaRef =
     useRef<HTMLDivElement | null>(
+      null,
+    );
+
+  const longPressTimerRef =
+    useRef<ReturnType<
+      typeof setTimeout
+    > | null>(null);
+
+  const longPressTriggeredRef =
+    useRef(false);
+
+  const [
+    menuMessage,
+    setMenuMessage,
+  ] =
+    useState<ConversationMessage | null>(
+      null,
+    );
+
+  const [
+    menuPosition,
+    setMenuPosition,
+  ] = useState({
+    x: 0,
+    y: 0,
+  });
+
+  const [
+    confirmingDelete,
+    setConfirmingDelete,
+  ] =
+    useState<ConversationMessage | null>(
       null,
     );
 
@@ -239,6 +251,124 @@ export function MessagesView({
   const online = isOnline(
     activeConversation?.last_seen_at,
   );
+
+  const closeMenu = () => {
+    setMenuMessage(null);
+  };
+
+  const clearLongPress = () => {
+    if (
+      longPressTimerRef.current
+    ) {
+      clearTimeout(
+        longPressTimerRef.current,
+      );
+
+      longPressTimerRef.current =
+        null;
+    }
+  };
+
+  const openMessageMenu = (
+    message: ConversationMessage,
+    x: number,
+    y: number,
+  ) => {
+    if (!activeConversation) {
+      return;
+    }
+
+    /*
+     * activeConversation is the OTHER person.
+     *
+     * Therefore:
+     *
+     * sender_id !== activeConversation.profile_id
+     *
+     * means this message was sent by the
+     * currently authenticated user.
+     */
+    const isSent =
+      message.sender_id !==
+      activeConversation.profile_id;
+
+    const menuWidth = 210;
+
+    const menuHeight =
+      isSent ? 104 : 62;
+
+    const safeX = Math.min(
+      x,
+      window.innerWidth -
+        menuWidth -
+        12,
+    );
+
+    const safeY = Math.min(
+      y,
+      window.innerHeight -
+        menuHeight -
+        12,
+    );
+
+    setMenuMessage(message);
+
+    setMenuPosition({
+      x: Math.max(
+        12,
+        safeX,
+      ),
+      y: Math.max(
+        12,
+        safeY,
+      ),
+    });
+  };
+
+  useEffect(() => {
+    const handlePointerDown =
+      () => {
+        closeMenu();
+      };
+
+    const handleEscape =
+      (event: KeyboardEvent) => {
+        if (
+          event.key ===
+          "Escape"
+        ) {
+          closeMenu();
+
+          setConfirmingDelete(
+            null,
+          );
+        }
+      };
+
+    document.addEventListener(
+      "pointerdown",
+      handlePointerDown,
+    );
+
+    document.addEventListener(
+      "keydown",
+      handleEscape,
+    );
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        handlePointerDown,
+      );
+
+      document.removeEventListener(
+        "keydown",
+        handleEscape,
+      );
+
+      clearLongPress();
+    };
+  }, []);
 
   useEffect(() => {
     const container =
@@ -267,8 +397,165 @@ export function MessagesView({
     messageLoading,
   ]);
 
+  const handleContextMenu = (
+    event: React.MouseEvent,
+    message: ConversationMessage,
+  ) => {
+    event.preventDefault();
+
+    openMessageMenu(
+      message,
+      event.clientX,
+      event.clientY,
+    );
+  };
+
+  const handleTouchStart = (
+    event: React.TouchEvent,
+    message: ConversationMessage,
+  ) => {
+    clearLongPress();
+
+    longPressTriggeredRef.current =
+      false;
+
+    const touch =
+      event.touches[0];
+
+    if (!touch) {
+      return;
+    }
+
+    const x =
+      touch.clientX;
+
+    const y =
+      touch.clientY;
+
+    longPressTimerRef.current =
+      setTimeout(() => {
+        longPressTriggeredRef.current =
+          true;
+
+        openMessageMenu(
+          message,
+          x,
+          y,
+        );
+      }, 600);
+  };
+
+  const handleTouchMove = () => {
+    clearLongPress();
+  };
+
+  const handleTouchEnd = () => {
+    clearLongPress();
+  };
+
+  const handleTrashClick = (
+    event: React.MouseEvent,
+    message: ConversationMessage,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    clearLongPress();
+
+    const rect =
+      event.currentTarget.getBoundingClientRect();
+
+    /*
+     * Open the menu next to the trash button
+     * instead of at the mouse cursor.
+     */
+    openMessageMenu(
+      message,
+      rect.left,
+      rect.bottom + 8,
+    );
+  };
+
+  const handleDeleteForMe =
+    async () => {
+      if (
+        !menuMessage?.id
+      ) {
+        return;
+      }
+
+      const messageId =
+        menuMessage.id;
+
+      closeMenu();
+
+      await onDeleteMessage(
+        messageId,
+        "me",
+      );
+    };
+
+  const handleDeleteForEveryone =
+    () => {
+      if (
+        !menuMessage?.id ||
+        !activeConversation
+      ) {
+        return;
+      }
+
+      /*
+       * Only the sender can delete a message
+       * for everyone.
+       */
+      const isSent =
+        menuMessage.sender_id !==
+        activeConversation.profile_id;
+
+      if (!isSent) {
+        closeMenu();
+        return;
+      }
+
+      const message =
+        menuMessage;
+
+      closeMenu();
+
+      setConfirmingDelete(
+        message,
+      );
+    };
+
+  const confirmDeleteForEveryone =
+    async () => {
+      if (
+        !confirmingDelete?.id
+      ) {
+        return;
+      }
+
+      const messageId =
+        confirmingDelete.id;
+
+      setConfirmingDelete(
+        null,
+      );
+
+      await onDeleteMessage(
+        messageId,
+        "everyone",
+      );
+    };
+
   return (
-    <section className="myfolks-messages">
+    <section
+      className={`myfolks-messages ${
+        mobileOpen
+          ? "mobile-chat-open"
+          : ""
+      }`}
+    >
       <aside className="message-panel">
         <div className="panel-heading">
           <p className="panel-eyebrow">
@@ -453,9 +740,21 @@ export function MessagesView({
                       message,
                       index,
                     ) => {
+                      /*
+                       * activeConversation is the OTHER
+                       * person in the conversation.
+                       *
+                       * Therefore a message is sent by
+                       * the current user when sender_id
+                       * is different from their profile id.
+                       */
                       const sent =
                         message.sender_id !==
                         activeConversation.profile_id;
+
+                      const deletedForEveryone =
+                        message.deleted_for_everyone ===
+                        true;
 
                       return (
                         <div
@@ -467,50 +766,117 @@ export function MessagesView({
                             sent
                               ? "sent"
                               : "received"
+                          } ${
+                            deletedForEveryone
+                              ? "deleted"
+                              : ""
                           }`}
+                          onContextMenu={(
+                            event,
+                          ) =>
+                            handleContextMenu(
+                              event,
+                              message,
+                            )
+                          }
+                          onTouchStart={(
+                            event,
+                          ) =>
+                            handleTouchStart(
+                              event,
+                              message,
+                            )
+                          }
+                          onTouchMove={
+                            handleTouchMove
+                          }
+                          onTouchEnd={
+                            handleTouchEnd
+                          }
+                          onTouchCancel={
+                            handleTouchEnd
+                          }
                         >
+                          <button
+                            type="button"
+                            className="message-delete-trigger"
+                            aria-label={`Delete message from ${formatTime(
+                              message.created_at,
+                            )}`}
+                            title="Delete message"
+                            onClick={(
+                              event,
+                            ) =>
+                              handleTrashClick(
+                                event,
+                                message,
+                              )
+                            }
+                          >
+                            <Trash2
+                              size={14}
+                              strokeWidth={2}
+                            />
+                          </button>
+
                           <article className="message-bubble">
-                            {message.message_asset_url && (
-                              <a
-                                href={
-                                  message.message_asset_url
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                                className="attachment-card"
-                              >
-                                <span className="attachment-icon">
-                                  <FileText
-                                    size={15}
-                                  />
-                                </span>
+                            {deletedForEveryone ? (
+                              <div className="deleted-message">
+                                <Trash2
+                                  size={13}
+                                />
 
-                                <span className="attachment-name">
-                                  {message.message_asset_name ??
-                                    "Attachment"}
+                                <span>
+                                  Message deleted
                                 </span>
-                              </a>
-                            )}
-
-                            {message.text && (
-                              <div className="message-text">
-                                {message.text}
                               </div>
-                            )}
+                            ) : (
+                              <>
+                                {message.message_asset_url && (
+                                  <a
+                                    href={
+                                      message.message_asset_url
+                                    }
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="attachment-card"
+                                  >
+                                    <span className="attachment-icon">
+                                      <FileText
+                                        size={15}
+                                      />
+                                    </span>
 
-                            <div className="message-meta">
-                              <span>
-                                {formatTime(
-                                  message.created_at,
+                                    <span className="attachment-name">
+                                      {message.message_asset_name ??
+                                        "Attachment"}
+                                    </span>
+                                  </a>
                                 )}
-                              </span>
 
-                              {sent && (
-                                <span className="sent-check">
-                                  <Check size={11} />
-                                </span>
-                              )}
-                            </div>
+                                {message.text && (
+                                  <div className="message-text">
+                                    {
+                                      message.text
+                                    }
+                                  </div>
+                                )}
+
+                                <div className="message-meta">
+                                  <span>
+                                    {formatTime(
+                                      message.created_at,
+                                    )}
+                                  </span>
+
+                                  {sent && (
+                                    <span className="sent-check">
+                                      <Check size={11} />
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </article>
                         </div>
                       );
@@ -638,6 +1004,131 @@ export function MessagesView({
           </>
         )}
       </section>
+
+      {menuMessage &&
+        activeConversation && (
+          <div
+            className="message-context-menu"
+            style={{
+              left:
+                menuPosition.x,
+              top:
+                menuPosition.y,
+            }}
+            onPointerDown={(event) =>
+              event.stopPropagation()
+            }
+            onContextMenu={(event) =>
+              event.preventDefault()
+            }
+          >
+            <button
+              type="button"
+              className="message-context-action"
+              onClick={
+                handleDeleteForMe
+              }
+            >
+              <Trash2 size={15} />
+
+              <span>
+                Delete for me
+              </span>
+            </button>
+
+            {menuMessage.sender_id !==
+              activeConversation.profile_id && (
+              <button
+                type="button"
+                className="message-context-action danger"
+                onClick={
+                  handleDeleteForEveryone
+                }
+              >
+                <Trash2 size={15} />
+
+                <span>
+                  Delete for everyone
+                </span>
+              </button>
+            )}
+          </div>
+        )}
+
+      {confirmingDelete && (
+        <div
+          className="delete-confirm-overlay"
+          role="presentation"
+          onPointerDown={() =>
+            setConfirmingDelete(
+              null,
+            )
+          }
+        >
+          <div
+            className="delete-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-message-title"
+            onPointerDown={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="delete-confirm-icon">
+              <Trash2 size={18} />
+            </div>
+
+            <div className="delete-confirm-copy">
+              <h3 id="delete-message-title">
+                Delete for everyone?
+              </h3>
+
+              <p>
+                This message will be
+                removed for both you
+                and the other person.
+              </p>
+            </div>
+
+            <div className="delete-confirm-actions">
+              <button
+                type="button"
+                className="delete-cancel-button"
+                onClick={() =>
+                  setConfirmingDelete(
+                    null,
+                  )
+                }
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                className="delete-confirm-button"
+                onClick={
+                  confirmDeleteForEveryone
+                }
+              >
+                Delete
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="delete-confirm-close"
+              onClick={() =>
+                setConfirmingDelete(
+                  null,
+                )
+              }
+              aria-label="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
