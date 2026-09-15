@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
 const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-const supabaseServiceRoleKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabaseSecretKey =
+  process.env.SUPABASE_SECRET_KEY;
 
 if (!supabaseUrl) {
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
@@ -17,17 +19,17 @@ if (!supabasePublishableKey) {
   );
 }
 
-if (!supabaseServiceRoleKey) {
-  throw new Error(
-    "Missing SUPABASE_SERVICE_ROLE_KEY",
-  );
+if (!supabaseSecretKey) {
+  throw new Error("Missing SUPABASE_SECRET_KEY");
 }
 
 const SUPABASE_URL = supabaseUrl;
+
 const SUPABASE_PUBLISHABLE_KEY =
   supabasePublishableKey;
-const SUPABASE_SERVICE_ROLE_KEY =
-  supabaseServiceRoleKey;
+
+const SUPABASE_SECRET_KEY =
+  supabaseSecretKey;
 
 type ProfileRow = {
   id: string;
@@ -65,7 +67,7 @@ function createAuthClient(accessToken: string) {
 function createAdminClient() {
   return createClient(
     SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
+    SUPABASE_SECRET_KEY,
     {
       auth: {
         autoRefreshToken: false,
@@ -194,13 +196,6 @@ export async function GET(request: Request) {
       );
     }
 
-    /*
-     * Use the service-role client for relationship reads.
-     *
-     * This prevents RLS policies from hiding relationship
-     * rows that the current user is allowed to use for
-     * discovery filtering.
-     */
     const adminSupabase =
       createAdminClient();
 
@@ -249,11 +244,6 @@ export async function GET(request: Request) {
     const requestRows =
       (data ?? []) as FriendRequestRow[];
 
-    /*
-     * Build a convenient status map for the client.
-     *
-     * The key is ALWAYS the other user's profile ID.
-     */
     const statusByProfile: Record<
       string,
       {
@@ -300,9 +290,6 @@ export async function GET(request: Request) {
       );
     }
 
-    /*
-     * Load profiles using the service-role client.
-     */
     const profiles =
       new Map<
         string,
@@ -468,9 +455,6 @@ export async function POST(request: Request) {
     const adminSupabase =
       createAdminClient();
 
-    /*
-     * Verify recipient exists.
-     */
     const {
       data: recipient,
       error: recipientError,
@@ -505,9 +489,6 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * Find any previous relationship in either direction.
-     */
     const {
       data: existingRequests,
       error: existingError,
@@ -721,13 +702,6 @@ export async function PATCH(request: Request) {
     const adminSupabase =
       createAdminClient();
 
-    /*
-     * Verify that the requested friend request exists.
-     *
-     * The service-role client is intentionally used here
-     * because this route has already authenticated the
-     * request above.
-     */
     const {
       data: friendRequest,
       error: requestError,
@@ -774,10 +748,6 @@ export async function PATCH(request: Request) {
     const requestRow =
       friendRequest as FriendRequestRow;
 
-    /*
-     * Only the recipient may respond to an incoming
-     * friend request.
-     */
     if (
       requestRow.recipient_id !==
       user.id
@@ -791,9 +761,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    /*
-     * The request must still be pending.
-     */
     if (
       requestRow.status !== "pending"
     ) {
@@ -806,11 +773,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    /*
-     * Declining does not need the database RPC because
-     * the route can safely perform the authenticated
-     * recipient check itself.
-     */
     if (action === "decline") {
       const {
         data: declined,
@@ -872,19 +834,9 @@ export async function PATCH(request: Request) {
     }
 
     /*
-     * IMPORTANT:
-     *
      * Use the authenticated Supabase client for the
-     * acceptance RPC rather than the service-role client.
-     *
-     * The database function can therefore see the real
-     * authenticated user's JWT through auth.uid().
-     *
-     * Using adminSupabase.rpc(...) here would execute the
-     * RPC without the recipient's authenticated context,
-     * which can cause accept_friend_request() to report:
-     *
-     * "Friend request not found or cannot be accepted."
+     * acceptance RPC so auth.uid() represents the
+     * actual recipient.
      */
     const {
       error: acceptError,
@@ -911,11 +863,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    /*
-     * Return the sender's profile ID because the accepted
-     * friendship is between the authenticated recipient
-     * and the original sender.
-     */
     return NextResponse.json({
       status: "accepted",
       request_id: requestId,
