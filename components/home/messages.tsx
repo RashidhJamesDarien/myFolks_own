@@ -44,15 +44,9 @@ export function MessagesView({
 }) {
   return (
     <section className="view-panel">
-      <Eyebrow>Private conversations</Eyebrow>
+      <Eyebrow>Conversations</Eyebrow>
 
       <h1>Messages</h1>
-
-      <p className="section-copy">
-        Messages are available only after friendship is
-        accepted or a person explicitly allows message
-        requests.
-      </p>
 
       <div
         className={`messages-shell ${
@@ -231,15 +225,6 @@ export function MessagesView({
                     </button>
                   </div>
                 )}
-
-                <div className="message-meta">
-                  <span>{messageCount} / 280</span>
-
-                  <span>
-                    Enter to send · Shift+Enter for a new
-                    line
-                  </span>
-                </div>
 
                 {messageStatus && (
                   <StatusMessage

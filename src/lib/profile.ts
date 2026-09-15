@@ -12,7 +12,9 @@ export type SupabaseProfile = {
   updated_at: string;
 };
 
-export async function getCurrentUserProfile(): Promise<SupabaseProfile | null> {
+export async function getCurrentUserProfile(): Promise<
+  SupabaseProfile | null
+> {
   const {
     data: { user },
     error: userError,
@@ -79,7 +81,8 @@ export async function createProfile({
         featuredInterest?.trim() || null,
       bio: bio?.trim() || null,
       location: location?.trim() || null,
-      profile_image_url: profileImageUrl || null,
+      profile_image_url:
+        profileImageUrl || null,
     })
     .select()
     .single();
@@ -121,41 +124,58 @@ export async function updateProfile({
     );
   }
 
-  const updates: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
+  const updates: Record<
+    string,
+    unknown
+  > = {
+    updated_at:
+      new Date().toISOString(),
   };
 
   if (username !== undefined) {
-    updates.username = username.trim();
+    updates.username =
+      username.trim();
   }
 
   if (fullName !== undefined) {
-    updates.full_name = fullName.trim();
+    updates.full_name =
+      fullName.trim();
   }
 
-  if (featuredInterest !== undefined) {
+  if (
+    featuredInterest !==
+    undefined
+  ) {
     updates.featured_interest =
-      featuredInterest.trim() || null;
+      featuredInterest.trim() ||
+      null;
   }
 
   if (bio !== undefined) {
-    updates.bio = bio.trim() || null;
+    updates.bio =
+      bio.trim() || null;
   }
 
   if (location !== undefined) {
-    updates.location = location.trim() || null;
+    updates.location =
+      location.trim() || null;
   }
 
-  if (profileImageUrl !== undefined) {
-    updates.profile_image_url = profileImageUrl;
+  if (
+    profileImageUrl !==
+    undefined
+  ) {
+    updates.profile_image_url =
+      profileImageUrl;
   }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .update(updates)
-    .eq("id", user.id)
-    .select()
-    .single();
+  const { data, error } =
+    await supabase
+      .from("profiles")
+      .update(updates)
+      .eq("id", user.id)
+      .select()
+      .single();
 
   if (error) {
     throw error;
@@ -175,13 +195,16 @@ export async function deleteCurrentProfile(): Promise<void> {
   }
 
   if (!user) {
-    throw new Error("You must be signed in.");
+    throw new Error(
+      "You must be signed in.",
+    );
   }
 
-  const { error } = await supabase
-    .from("profiles")
-    .delete()
-    .eq("id", user.id);
+  const { error } =
+    await supabase
+      .from("profiles")
+      .delete()
+      .eq("id", user.id);
 
   if (error) {
     throw error;

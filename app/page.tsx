@@ -282,28 +282,38 @@ export default function Home() {
   const [messageCount, setMessageCount] =
     useState(0);
 
+  const [discoveryRefreshToken, setDiscoveryRefreshToken] =
+    useState(0);
+
+  const discoveryRequestIdRef =
+    useRef(0);
+
+  /*
+   * The currently displayed pair.
+   *
+   * Keeping this derived directly from the queue means
+   * the UI always receives the exact pair belonging to
+   * the current discovery round.
+   */
   const currentPair =
-    pairQueue[pairIndex] || [];
+    pairQueue[pairIndex] ?? [];
 
   const availableProfiles =
     useMemo(
       () =>
         profiles.filter(
           (profile) =>
+            Boolean(profile?.profile_id) &&
             profile.profile_id !==
               currentProfile?.profile_id &&
             !blockedProfiles.has(
               profile.profile_id,
-            ) &&
-            !friendRequestStates[
-              profile.profile_id
-            ],
+            ),
         ),
       [
         profiles,
-        currentProfile,
+        currentProfile?.profile_id,
         blockedProfiles,
-        friendRequestStates,
       ],
     );
 
@@ -474,94 +484,254 @@ export default function Home() {
     }
   };
 
-  const buildPairQueue = (
-    sourceProfiles = profiles,
-    requestStates = friendRequestStates,
+  /*
+   * Get profiles that are actually usable by discovery.
+   *
+   * The discovery API already removes relationships such
+   * as existing friendships and pending requests. This
+   * client-side filter is an additional safety layer.
+   */
+  const getDiscoveryEligibleProfiles = (
+    sourceProfiles: Profile[],
+    excludedIds: Set<string> = new Set(),
   ) => {
-    const available =
-      sourceProfiles.filter(
-        (profile) =>
-          profile.profile_id !==
-            currentProfile?.profile_id &&
-          !blockedProfiles.has(
+    return sourceProfiles.filter(
+      (profile) => {
+        if (
+          !profile ||
+          typeof profile.profile_id !==
+            "string" ||
+          !profile.profile_id.trim()
+        ) {
+          return false;
+        }
+
+        if (
+          currentProfile?.profile_id &&
+          profile.profile_id ===
+            currentProfile.profile_id
+        ) {
+          return false;
+        }
+
+        if (
+          blockedProfiles.has(
             profile.profile_id,
-          ) &&
-          !requestStates[
-            profile.profile_id
-          ],
+          )
+        ) {
+          return false;
+        }
+
+        if (
+          excludedIds.has(
+            profile.profile_id,
+          )
+        ) {
+          return false;
+        }
+
+        return true;
+      },
+    );
+  };
+
+  /*
+   * Build the six-round discovery queue.
+   *
+   * IMPORTANT:
+   * We do not require 12 unique profiles.
+   *
+   * Two profiles are enough to create six A-vs-B
+   * rounds. With more profiles, we prefer unique
+   * people before reusing anyone.
+   */
+  const buildPairQueue = (
+    sourceProfiles: Profile[] = profiles,
+    excludedIds: Set<string> = new Set(),
+  ) => {
+    const eligible =
+      getDiscoveryEligibleProfiles(
+        sourceProfiles,
+        excludedIds,
       );
 
-    if (available.length < 2) {
-      setPairQueue([]);
-      setPairIndex(0);
-      return;
-    }
-
-    const allPairs: Profile[][] = [];
-
-    for (
-      let i = 0;
-      i < available.length;
-      i += 1
-    ) {
-      for (
-        let j = i + 1;
-        j < available.length;
-        j += 1
-      ) {
-        allPairs.push([
-          available[i],
-          available[j],
-        ]);
-      }
-    }
-
-    const shuffledPairs =
-      shuffle(allPairs);
-
-    const selectedPairs:
-      Profile[][] = [];
-
-    for (
-      let i = 0;
-      i <
-        shuffledPairs.length &&
-        selectedPairs.length <
-          DISCOVERY_ROUNDS;
-      i += 1
-    ) {
-      selectedPairs.push(
-        shuffledPairs[i],
-      );
-    }
+    console.log(
+      "[myFolks discovery queue]",
+      {
+        sourceProfiles:
+          sourceProfiles.length,
+        eligibleProfiles:
+          eligible.length,
+        discoveryRounds:
+          DISCOVERY_ROUNDS,
+      },
+    );
 
     if (
-      selectedPairs.length <
-        DISCOVERY_ROUNDS &&
-      shuffledPairs.length > 0
+      eligible.length <
+      2
     ) {
-      let repeatIndex = 0;
+      setPairQueue([]);
+      setPairIndex(0);
 
-      while (
-        selectedPairs.length <
-        DISCOVERY_ROUNDS
+      return false;
+    }
+
+    const shuffled =
+      shuffle([
+        ...eligible,
+      ]);
+
+    const pairs: Profile[][] = [];
+
+    /*
+     * First pass:
+     * prefer unique profiles.
+     */
+    const firstPassProfiles =
+      shuffle([
+        ...shuffled,
+      ]);
+
+    let cursor = 0;
+
+    while (
+      pairs.length <
+        DISCOVERY_ROUNDS &&
+      cursor + 1 <
+        firstPassProfiles.length
+    ) {
+      const first =
+        firstPassProfiles[
+          cursor
+        ];
+
+      const second =
+        firstPassProfiles[
+          cursor + 1
+        ];
+
+      if (
+        first &&
+        second &&
+        first.profile_id !==
+          second.profile_id
       ) {
-        selectedPairs.push(
-          shuffledPairs[
-            repeatIndex %
-              shuffledPairs.length
-          ],
-        );
-
-        repeatIndex += 1;
+        pairs.push([
+          first,
+          second,
+        ]);
       }
+
+      cursor += 2;
+    }
+
+    /*
+     * Second pass:
+     * reuse profiles to guarantee six rounds.
+     */
+    let fallbackIndex = 0;
+
+    while (
+      pairs.length <
+      DISCOVERY_ROUNDS
+    ) {
+      const first =
+        shuffled[
+          fallbackIndex %
+            shuffled.length
+        ];
+
+      const second =
+        shuffled[
+          (fallbackIndex + 1) %
+            shuffled.length
+        ];
+
+      if (
+        first &&
+        second &&
+        first.profile_id !==
+          second.profile_id
+      ) {
+        pairs.push([
+          first,
+          second,
+        ]);
+      }
+
+      fallbackIndex += 1;
+
+      if (
+        fallbackIndex >
+        Math.max(
+          shuffled.length * 6,
+          12,
+        )
+      ) {
+        break;
+      }
+    }
+
+    const finalQueue =
+      pairs.slice(
+        0,
+        DISCOVERY_ROUNDS,
+      );
+
+    console.log(
+      "[myFolks discovery queue result]",
+      {
+        pairsBuilt:
+          finalQueue.length,
+        required:
+          DISCOVERY_ROUNDS,
+        profileIds:
+          finalQueue.map(
+            (pair) =>
+              pair.map(
+                (profile) =>
+                  profile.profile_id,
+              ),
+          ),
+      },
+    );
+
+    if (
+      finalQueue.length ===
+      0
+    ) {
+      setPairQueue([]);
+      setPairIndex(0);
+
+      return false;
     }
 
     setPairQueue(
-      selectedPairs,
+      finalQueue,
     );
 
     setPairIndex(0);
+
+    console.log(
+      "[myFolks discovery] FIRST PAIR",
+      finalQueue[0]?.map(
+        (profile) => ({
+          id:
+            profile.profile_id,
+          name:
+            profile.display_name,
+          username:
+            profile.username,
+          interest:
+            profile.featured_interest,
+          photo:
+            profile.photo_url,
+        }),
+      ),
+    );
+
+    return true;
   };
 
   const loadFriendRequestStatuses =
@@ -634,12 +804,6 @@ export default function Home() {
           }
 
           if (
-            states[otherProfileId]
-          ) {
-            continue;
-          }
-
-          if (
             request.status ===
             "accepted"
           ) {
@@ -657,7 +821,10 @@ export default function Home() {
 
           if (
             request.status ===
-            "pending"
+              "pending" &&
+            !states[
+              otherProfileId
+            ]
           ) {
             states[
               otherProfileId
@@ -697,7 +864,10 @@ export default function Home() {
 
         const data =
           (await apiRequest(
-            "/api/friends",
+            API.friendRequests.replace(
+              "/friend-requests",
+              "/friends",
+            ),
           )) as FriendsResponse;
 
         setFriends(
@@ -715,80 +885,260 @@ export default function Home() {
       }
     };
 
-  /*
-   * Refreshes relationship information used by
-   * the Friends page.
-   *
-   * This function intentionally returns Promise<void>
-   * because FriendsView only needs to know that the
-   * refresh has completed.
-   */
   const refreshRelationshipData =
     async (): Promise<void> => {
       await loadFriendRequestStatuses();
       await loadFriends();
+
+      setDiscoveryRefreshToken(
+        (value) => value + 1,
+      );
     };
 
+  /*
+   * Load discovery profiles from the API.
+   *
+   * The API uses the authenticated Supabase token.
+   * We additionally resolve the current auth user here
+   * so the client never accidentally displays the current
+   * account as another discovery profile.
+   */
   const loadRemoteProfiles =
-    async (
-      requestStates = friendRequestStates,
-    ) => {
+    async (): Promise<boolean> => {
+      const requestId =
+        ++discoveryRequestIdRef.current;
+
       setDiscoverState(
         "loading",
       );
 
+      setDiscoverNotice(
+        null,
+      );
+
       try {
+        const {
+          data: { user },
+          error: userError,
+        } =
+          await supabase.auth.getUser();
+
+        if (
+          userError ||
+          !user
+        ) {
+          throw new Error(
+            "Your authentication session could not be verified. Please sign in again.",
+          );
+        }
+
+        console.log(
+          "[myFolks discovery] requesting profiles",
+          {
+            endpoint:
+              API.discover,
+            requestId,
+            currentUserId:
+              user.id,
+          },
+        );
+
         const data =
           (await apiRequest(
             API.discover,
           )) as DiscoverProfilesResponse;
 
-        const loadedProfiles:
-          Profile[] = (
+        if (
+          requestId !==
+          discoveryRequestIdRef.current
+        ) {
+          return false;
+        }
+
+        const rawProfiles =
           Array.isArray(
-            data.profiles,
+            data?.profiles,
           )
             ? data.profiles
-            : []
-        )
-          .filter(
-            (item: Profile) =>
-              item?.profile_id,
-          )
-          .filter(
-            (item: Profile) =>
-              item.profile_id !==
-              currentProfile?.profile_id,
+            : [];
+
+        /*
+         * Normalize and deduplicate the API response.
+         */
+        const uniqueMap =
+          new Map<
+            string,
+            Profile
+          >();
+
+        for (
+          const item of rawProfiles
+        ) {
+          if (
+            !item ||
+            typeof item.profile_id !==
+              "string" ||
+            !item.profile_id.trim()
+          ) {
+            continue;
+          }
+
+          /*
+           * Always remove the authenticated user,
+           * even if the API accidentally returns them.
+           */
+          if (
+            item.profile_id ===
+            user.id
+          ) {
+            continue;
+          }
+
+          if (
+            currentProfile?.profile_id &&
+            item.profile_id ===
+              currentProfile.profile_id
+          ) {
+            continue;
+          }
+
+          if (
+            !uniqueMap.has(
+              item.profile_id,
+            )
+          ) {
+            uniqueMap.set(
+              item.profile_id,
+              item,
+            );
+          }
+        }
+
+        const uniqueProfiles =
+          Array.from(
+            uniqueMap.values(),
           );
 
+        /*
+         * Store the raw usable profile list first.
+         */
         setProfiles(
-          loadedProfiles,
+          uniqueProfiles,
         );
 
         const discoverableProfiles =
-          loadedProfiles.filter(
-            (profile) =>
-              profile.profile_id !==
-                currentProfile?.profile_id &&
-              !blockedProfiles.has(
-                profile.profile_id,
-              ) &&
-              !requestStates[
-                profile.profile_id
-              ],
+          getDiscoveryEligibleProfiles(
+            uniqueProfiles,
           );
 
-        setDiscoverState(
-          discoverableProfiles.length
-            ? "ready"
-            : "empty",
+        console.log(
+          "[myFolks discovery]",
+          {
+            apiProfiles:
+              rawProfiles.length,
+            uniqueProfiles:
+              uniqueProfiles.length,
+            currentAuthUser:
+              user.id,
+            currentProfileId:
+              currentProfile?.profile_id,
+            blockedProfiles:
+              blockedProfiles.size,
+            discoverableProfiles:
+              discoverableProfiles.length,
+            profileIds:
+              discoverableProfiles.map(
+                (profile) =>
+                  profile.profile_id,
+              ),
+          },
         );
 
-        buildPairQueue(
-          loadedProfiles,
-          requestStates,
+        if (
+          discoverableProfiles.length <
+          2
+        ) {
+          setPairQueue([]);
+          setPairIndex(0);
+
+          setDiscoverState(
+            "empty",
+          );
+
+          if (
+            rawProfiles.length ===
+            0
+          ) {
+            setDiscoverNotice({
+              text: "The discovery API returned no profiles. Make sure at least two other users have created profiles.",
+              type: "error",
+            });
+          } else if (
+            discoverableProfiles.length ===
+            1
+          ) {
+            setDiscoverNotice({
+              text: "One profile is available, but myFolks needs at least two people to create an A-vs-B discovery round.",
+              type: "info",
+            });
+          } else {
+            setDiscoverNotice({
+              text: "Profiles were returned, but none are currently available for discovery.",
+              type: "info",
+            });
+          }
+
+          return false;
+        }
+
+        /*
+         * IMPORTANT:
+         *
+         * Build the queue from discoverableProfiles,
+         * not the original API array.
+         */
+        const queueBuilt =
+          buildPairQueue(
+            discoverableProfiles,
+          );
+
+        if (
+          requestId !==
+          discoveryRequestIdRef.current
+        ) {
+          return false;
+        }
+
+        if (!queueBuilt) {
+          setDiscoverState(
+            "error",
+          );
+
+          setDiscoverNotice({
+            text: "Profiles were loaded, but myFolks could not create the discovery pairs.",
+            type: "error",
+          });
+
+          return false;
+        }
+
+        setDiscoverState(
+          "ready",
         );
+
+        setDiscoverNotice(
+          null,
+        );
+
+        return true;
       } catch (error) {
+        if (
+          requestId !==
+          discoveryRequestIdRef.current
+        ) {
+          return false;
+        }
+
         console.error(
           "Failed to load remote profiles:",
           error,
@@ -797,16 +1147,36 @@ export default function Home() {
         setProfiles([]);
         setPairQueue([]);
         setPairIndex(0);
+
         setDiscoverState(
           "error",
         );
+
+        setDiscoverNotice({
+          text:
+            error instanceof Error &&
+            error.message
+              ? error.message
+              : "Profiles could not be loaded. Please try again.",
+          type: "error",
+        });
+
+        return false;
       }
     };
 
+  /*
+   * Start a completely fresh six-round discovery session.
+   */
   const restartDiscovery =
-    async (
-      notice?: string,
-    ) => {
+    () => {
+      /*
+       * Invalidate any previous request so an older
+       * response cannot overwrite the fresh session.
+       */
+      discoveryRequestIdRef.current +=
+        1;
+
       setCompletionProfile(
         null,
       );
@@ -816,26 +1186,22 @@ export default function Home() {
       );
 
       setPairQueue([]);
-
       setPairIndex(0);
 
-      if (notice) {
-        setStatus(
-          "success",
-          notice,
-          "discover",
-        );
-      }
+      setDiscoverNotice(
+        null,
+      );
 
-      const requestStates =
-        await loadFriendRequestStatuses();
-
-      await loadRemoteProfiles(
-        requestStates ??
-          friendRequestStates,
+      setDiscoverState(
+        "loading",
       );
 
       setView("discover");
+      setMobileMenuOpen(false);
+
+      setDiscoveryRefreshToken(
+        (value) => value + 1,
+      );
     };
 
   useLayoutEffect(() => {
@@ -918,8 +1284,9 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!authenticated)
+    if (!authenticated) {
       return;
+    }
 
     const loadProfile =
       async () => {
@@ -1031,37 +1398,51 @@ export default function Home() {
       };
 
     void refreshRelationships();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     authenticated,
     backendConnected,
   ]);
 
+  /*
+   * Discovery loading effect.
+   *
+   * The current profile ID is included because the initial
+   * discovery request may happen before the profile itself
+   * has finished loading.
+   */
   useEffect(() => {
     if (
       !authenticated ||
-      !backendConnected ||
-      view !== "discover"
+      !backendConnected
     ) {
       return;
     }
 
+    let cancelled = false;
+
     const refreshDiscover =
       async () => {
-        const requestStates =
-          await loadFriendRequestStatuses();
+        if (cancelled) {
+          return;
+        }
 
-        await loadRemoteProfiles(
-          requestStates ??
-            friendRequestStates,
-        );
+        await loadRemoteProfiles();
       };
 
     void refreshDiscover();
+
+    return () => {
+      cancelled = true;
+    };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     authenticated,
     backendConnected,
-    view,
     currentProfile?.profile_id,
+    discoveryRefreshToken,
   ]);
 
   useEffect(() => {
@@ -1076,27 +1457,46 @@ export default function Home() {
     editProfilePhotoUrl,
   ]);
 
+  /*
+   * Choose one of the two profiles in the current round.
+   *
+   * IMPORTANT:
+   * Do NOT rebuild the entire remaining queue here.
+   *
+   * The six-round queue has already been constructed.
+   * We simply advance to the next pair.
+   */
   const chooseInterest = (
     index: number,
   ) => {
     const chosen =
       currentPair[index];
 
-    if (!chosen) return;
+    if (!chosen) {
+      console.warn(
+        "[myFolks discovery] No profile exists at selected index.",
+        {
+          index,
+          pairIndex,
+          currentPair,
+        },
+      );
+
+      return;
+    }
+
+    const nextSelections = [
+      ...positiveSelections,
+      chosen,
+    ];
 
     setPositiveSelections(
-      (previous) => [
-        ...previous,
-        chosen,
-      ],
+      nextSelections,
     );
 
-    const nextIndex =
-      pairIndex + 1;
-
     if (
-      nextIndex >=
-      pairQueue.length
+      pairIndex >=
+      DISCOVERY_ROUNDS - 1
     ) {
       setCompletionProfile(
         chosen,
@@ -1106,30 +1506,40 @@ export default function Home() {
     }
 
     setPairIndex(
-      nextIndex,
+      (current) =>
+        Math.min(
+          current + 1,
+          DISCOVERY_ROUNDS - 1,
+        ),
     );
   };
 
   const skipPair = () => {
-    const nextIndex =
-      pairIndex + 1;
-
     if (
-      nextIndex >=
-      pairQueue.length
+      pairIndex >=
+      DISCOVERY_ROUNDS - 1
     ) {
-      setCompletionProfile(
+      const fallbackProfile =
         positiveSelections[
           positiveSelections.length -
             1
-        ] || null,
+        ] ||
+        currentPair[0] ||
+        null;
+
+      setCompletionProfile(
+        fallbackProfile,
       );
 
       return;
     }
 
     setPairIndex(
-      nextIndex,
+      (current) =>
+        Math.min(
+          current + 1,
+          DISCOVERY_ROUNDS - 1,
+        ),
     );
   };
 
@@ -1223,13 +1633,7 @@ export default function Home() {
         "discover",
       );
 
-      buildPairQueue(
-        profiles.filter(
-          (item) =>
-            item.profile_id !==
-            profile.profile_id,
-        ),
-      );
+      restartDiscovery();
     } catch (error) {
       console.error(
         "Failed to block profile:",
@@ -1265,43 +1669,13 @@ export default function Home() {
 
       if (
         existingStatus ===
-        "pending"
-      ) {
-        setStatus(
-          "info",
-          "A friend request is already pending.",
-          "discover",
-        );
-
-        await restartDiscovery();
-        return;
-      }
-
-      if (
+          "pending" ||
         existingStatus ===
-        "accepted"
-      ) {
-        setStatus(
-          "info",
-          "You are already friends with this person.",
-          "discover",
-        );
-
-        await restartDiscovery();
-        return;
-      }
-
-      if (
+          "accepted" ||
         existingStatus ===
-        "incoming"
+          "incoming"
       ) {
-        setStatus(
-          "info",
-          "This person has already sent you a friend request. Check your friend requests to accept it.",
-          "discover",
-        );
-
-        await restartDiscovery();
+        restartDiscovery();
         return;
       }
 
@@ -1337,28 +1711,23 @@ export default function Home() {
               ? data.id
               : "";
 
-        const nextFriendRequestStates =
-          {
-            ...friendRequestStates,
+        setFriendRequestStates(
+          (current) => ({
+            ...current,
             [profileId]: {
               status:
-                "pending" as const,
+                "pending",
               requestId:
                 createdRequestId ||
-                friendRequestStates[
+                current[
                   profileId
                 ]?.requestId ||
                 "",
             },
-          };
-
-        setFriendRequestStates(
-          nextFriendRequestStates,
+          }),
         );
 
-        await restartDiscovery(
-          "Friend request sent. Discovering new people for you.",
-        );
+        restartDiscovery();
       } catch (error) {
         console.error(
           "Failed to send friend request:",
@@ -1390,7 +1759,7 @@ export default function Home() {
             }),
           );
 
-          await restartDiscovery();
+          restartDiscovery();
           return;
         }
 
@@ -1414,7 +1783,7 @@ export default function Home() {
           );
 
           await loadFriends();
-          await restartDiscovery();
+          restartDiscovery();
           return;
         }
 
@@ -1438,7 +1807,7 @@ export default function Home() {
             }),
           );
 
-          await restartDiscovery();
+          restartDiscovery();
           return;
         }
 
@@ -1607,7 +1976,6 @@ export default function Home() {
 
     if (!form.checkValidity()) {
       form.reportValidity();
-
       return;
     }
 
@@ -1866,7 +2234,9 @@ export default function Home() {
         type: "success",
       });
 
-      await loadRemoteProfiles();
+      setDiscoveryRefreshToken(
+        (value) => value + 1,
+      );
 
       showView("profile");
     } catch (error) {
@@ -2261,7 +2631,9 @@ export default function Home() {
           );
         }
 
-        await loadRemoteProfiles();
+        setDiscoveryRefreshToken(
+          (value) => value + 1,
+        );
       } catch (error) {
         console.error(
           "Failed to update profile:",
@@ -2578,6 +2950,9 @@ export default function Home() {
           throw error;
         }
 
+        discoveryRequestIdRef.current +=
+          1;
+
         setCurrentProfile(
           null,
         );
@@ -2617,6 +2992,14 @@ export default function Home() {
         );
 
         setProfiles([]);
+
+        setDiscoverState(
+          "loading",
+        );
+
+        setDiscoverNotice(
+          null,
+        );
 
         setView("discover");
       } catch (error) {
@@ -2693,6 +3076,9 @@ export default function Home() {
 
         await supabase.auth.signOut();
 
+        discoveryRequestIdRef.current +=
+          1;
+
         setCurrentProfile(
           null,
         );
@@ -2733,6 +3119,14 @@ export default function Home() {
 
         setProfiles([]);
 
+        setDiscoverState(
+          "loading",
+        );
+
+        setDiscoverNotice(
+          null,
+        );
+
         setView("discover");
       } catch (error) {
         console.error(
@@ -2763,28 +3157,40 @@ export default function Home() {
   };
 
   const progressTotal =
-    pairQueue.length;
+    DISCOVERY_ROUNDS;
 
   const progressCurrent =
-    progressTotal > 0
-      ? Math.min(
-          pairIndex + 1,
-          progressTotal,
-        )
-      : 0;
+    completionProfile
+      ? DISCOVERY_ROUNDS
+      : pairQueue.length > 0
+        ? Math.min(
+            pairIndex + 1,
+            DISCOVERY_ROUNDS,
+          )
+        : 0;
 
   const progressPercent =
-    progressTotal > 0
-      ? (Math.min(
-          pairIndex,
-          progressTotal,
-        ) /
-          progressTotal) *
-        100
-      : 0;
+    completionProfile
+      ? 100
+      : progressCurrent > 0
+        ? (progressCurrent /
+            DISCOVERY_ROUNDS) *
+          100
+        : 0;
 
+  /*
+   * Keep the number passed to DiscoverView consistent
+   * with an existing valid pair.
+   *
+   * This prevents the presentation layer from deciding
+   * that the pair is "insufficient" while page.tsx has
+   * already successfully built one.
+   */
   const visibleProfilesCount =
-    availableProfiles.length;
+    Math.max(
+      availableProfiles.length,
+      currentPair.length,
+    );
 
   if (authLoading) {
     return (
@@ -3080,9 +3486,9 @@ export default function Home() {
                     ),
                 )
               }
-              onRetry={
-                loadRemoteProfiles
-              }
+              onRetry={() => {
+                restartDiscovery();
+              }}
             />
           )}
 
@@ -3480,20 +3886,84 @@ export default function Home() {
                 />
               </div>
 
+              <p className="eyebrow">
+                Six rounds complete
+              </p>
+
               <h2>
-                Perfect match found!
+                You found a match.
               </h2>
 
-              <p>
-                You completed every
-                available pair and
-                found a person whose
-                interest resonated
-                with yours. You can
-                take a gentle next
-                step, or simply return
-                to Discover.
+              <p className="completion-intro">
+                You completed all six
+                discovery rounds. This is the
+                person you selected in your
+                final round.
               </p>
+
+              <div className="completion-profile">
+                <div className="completion-profile-photo">
+                  {completionProfile.photo_url ? (
+                    <img
+                      src={
+                        completionProfile.photo_url
+                      }
+                      alt={
+                        completionProfile.display_name
+                      }
+                      className="completion-profile-image"
+                    />
+                  ) : (
+                    <div className="completion-profile-placeholder">
+                      <Icon
+                        name="user"
+                        size={34}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="completion-profile-details">
+                  <h3>
+                    {
+                      completionProfile.display_name
+                    }
+                  </h3>
+
+                  {completionProfile.username && (
+                    <p className="completion-username">
+                      @
+                      {
+                        completionProfile.username
+                      }
+                    </p>
+                  )}
+
+                  {completionProfile.featured_interest && (
+                    <p className="completion-interest">
+                      {
+                        completionProfile.featured_interest
+                      }
+                    </p>
+                  )}
+
+                  {completionProfile.bio && (
+                    <p className="completion-bio">
+                      {
+                        completionProfile.bio
+                      }
+                    </p>
+                  )}
+
+                  {completionProfile.location && (
+                    <p className="completion-location">
+                      {
+                        completionProfile.location
+                      }
+                    </p>
+                  )}
+                </div>
+              </div>
 
               <div className="completion-actions">
                 {(() => {
@@ -3574,10 +4044,10 @@ export default function Home() {
                 type="button"
                 className="text-button"
                 onClick={() =>
-                  void restartDiscovery()
+                  restartDiscovery()
                 }
               >
-                Return to Discover
+                Continue discovering
               </button>
             </div>
           </div>

@@ -37,11 +37,30 @@ export function DiscoverView({
   onBlock: (profile: Profile) => void;
   onRetry: () => void;
 }) {
-  const loading = discoverState === "loading";
-  const empty = discoverState === "empty";
-  const error = discoverState === "error";
+  const loading =
+    discoverState === "loading";
+
+  const empty =
+    discoverState === "empty";
+
+  const error =
+    discoverState === "error";
+
+  /*
+   * The pair itself is the source of truth for rendering.
+   *
+   * Previously, `insufficient` could hide the cards even
+   * when Home had already successfully built a pair.
+   */
+  const hasPair =
+    currentPair.length === 2 &&
+    Boolean(currentPair[0]?.profile_id) &&
+    Boolean(currentPair[1]?.profile_id);
 
   const insufficient =
+    !loading &&
+    !error &&
+    !hasPair &&
     profiles.length > 0 &&
     visibleProfilesCount < 2;
 
@@ -88,7 +107,10 @@ export function DiscoverView({
 
       {loading && (
         <div className="state-card">
-          <Icon name="loader" size={32} />
+          <Icon
+            name="loader"
+            size={32}
+          />
 
           <p>
             Loading profiles to discover…
@@ -96,17 +118,19 @@ export function DiscoverView({
         </div>
       )}
 
-      {empty && (
+      {empty && !hasPair && (
         <div className="state-card">
-          <p>No profiles to discover yet.</p>
+          <p>
+            No profiles to discover yet.
+          </p>
         </div>
       )}
 
-      {error && (
+      {error && !hasPair && (
         <div className="state-card error-state">
           <p>
-            Profiles could not be loaded right now. Please
-            try again.
+            Profiles could not be loaded right now.
+            Please try again.
           </p>
 
           <button
@@ -128,9 +152,14 @@ export function DiscoverView({
 
       {insufficient && (
         <div className="insufficient-card">
-          <Icon name="users" size={40} />
+          <Icon
+            name="users"
+            size={40}
+          />
 
-          <h2>More profiles are needed</h2>
+          <h2>
+            More profiles are needed
+          </h2>
 
           <p>
             There are not enough available profiles to
@@ -141,47 +170,65 @@ export function DiscoverView({
         </div>
       )}
 
-      {!loading &&
-        !empty &&
-        !error &&
-        !insufficient &&
-        currentPair.length === 2 && (
-          <>
-            <div className="pair-grid">
-              <ProfileCard
-                profile={currentPair[0]}
-                variant="coral"
-                onChoose={() => onChoose(0)}
-                onReport={() => onReport(currentPair[0])}
-                onBlock={() => onBlock(currentPair[0])}
-              />
+      {hasPair && (
+        <>
+          <div className="pair-grid">
+            <ProfileCard
+              profile={currentPair[0]}
+              variant="coral"
+              onChoose={() =>
+                onChoose(0)
+              }
+              onReport={() =>
+                onReport(
+                  currentPair[0],
+                )
+              }
+              onBlock={() =>
+                onBlock(
+                  currentPair[0],
+                )
+              }
+            />
 
-              <div className="or-badge">OR</div>
-
-              <ProfileCard
-                profile={currentPair[1]}
-                variant="lavender"
-                onChoose={() => onChoose(1)}
-                onReport={() => onReport(currentPair[1])}
-                onBlock={() => onBlock(currentPair[1])}
-              />
+            <div className="or-badge">
+              OR
             </div>
 
-            <div className="discovery-controls">
-              <button
-                type="button"
-                className="button lavender"
-                onClick={onSkip}
-              >
-                Skip this pair
-              </button>
+            <ProfileCard
+              profile={currentPair[1]}
+              variant="lavender"
+              onChoose={() =>
+                onChoose(1)
+              }
+              onReport={() =>
+                onReport(
+                  currentPair[1],
+                )
+              }
+              onBlock={() =>
+                onBlock(
+                  currentPair[1],
+                )
+              }
+            />
+          </div>
 
-              <span className="selection-count">
-                {positiveSelections.length} selections
-              </span>
-            </div>
-          </>
-        )}
+          <div className="discovery-controls">
+            <button
+              type="button"
+              className="button lavender"
+              onClick={onSkip}
+            >
+              Skip this pair
+            </button>
+
+            <span className="selection-count">
+              {positiveSelections.length} selections
+            </span>
+          </div>
+        </>
+      )}
     </section>
   );
 }

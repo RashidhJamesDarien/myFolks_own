@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabasePublishableKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const supabaseServiceRoleKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl) {
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
@@ -15,22 +17,70 @@ if (!supabasePublishableKey) {
   );
 }
 
-const SUPABASE_URL = supabaseUrl as string;
+if (!supabaseServiceRoleKey) {
+  throw new Error(
+    "Missing SUPABASE_SERVICE_ROLE_KEY",
+  );
+}
+
+const SUPABASE_URL = supabaseUrl;
 const SUPABASE_PUBLISHABLE_KEY =
-  supabasePublishableKey as string;
+  supabasePublishableKey;
+const SUPABASE_SERVICE_ROLE_KEY =
+  supabaseServiceRoleKey;
+
+function createAuthClient(accessToken: string) {
+  return createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    },
+  );
+}
+
+function createAdminClient() {
+  return createClient(
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  );
+}
 
 export async function GET(request: Request) {
   try {
-    const authorization = request.headers.get(
-      "Authorization",
-    );
+    /*
+     * --------------------------------------------------
+     * 1. Authenticate the current user.
+     * --------------------------------------------------
+     */
+
+    const authorization =
+      request.headers.get("Authorization");
 
     if (
       !authorization ||
-      !authorization.startsWith("Bearer ")
+      !authorization
+        .toLowerCase()
+        .startsWith("bearer ")
     ) {
       return NextResponse.json(
-        { error: "Authentication required." },
+        {
+          error: "Authentication required.",
+        },
         { status: 401 },
       );
     }
@@ -41,31 +91,24 @@ export async function GET(request: Request) {
 
     if (!accessToken) {
       return NextResponse.json(
-        { error: "Authentication required." },
+        {
+          error: "Authentication required.",
+        },
         { status: 401 },
       );
     }
 
-    const supabase = createClient(
-      SUPABASE_URL,
-      SUPABASE_PUBLISHABLE_KEY,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      },
-    );
+    const authSupabase =
+      createAuthClient(accessToken);
 
     const {
       data: { user },
       error: userError,
-    } = await supabase.auth.getUser();
+    } = await authSupabase.auth.getUser();
 
     if (userError || !user) {
       console.error(
-        "Discover authentication error:",
+        "[discover/profiles] Authentication error:",
         userError,
       );
 
@@ -79,49 +122,51 @@ export async function GET(request: Request) {
     }
 
     /*
-     * Load every relationship involving the current
-     * user so Discover can exclude people who are:
+     * --------------------------------------------------
+     * 2. Create an admin client.
      *
-     * - already friends
-     * - involved in a pending request
-     *
-     * We intentionally do not exclude declined requests.
-     * A declined connection can therefore appear again
-     * in a future discovery session.
+     * This is SERVER ONLY.
+     * The service role key must never be exposed
+     * to the browser.
+     * --------------------------------------------------
      */
-    const [
-      { data: friendRequests, error: friendRequestsError },
-      { data: friendships, error: friendshipsError },
-    ] = await Promise.all([
-      supabase
-        .from("friend_requests")
-        .select(
-          `
-            sender_id,
-            recipient_id,
-            status
-          `,
-        )
-        .or(
-          `sender_id.eq.${user.id},recipient_id.eq.${user.id}`,
-        ),
 
-      supabase
-        .from("friendships")
-        .select(
-          `
-            user_id,
-            friend_id
-          `,
-        )
-        .or(
-          `user_id.eq.${user.id},friend_id.eq.${user.id}`,
-        ),
-    ]);
+    const adminSupabase =
+      createAdminClient();
+
+    /*
+     * --------------------------------------------------
+     * 3. Load friend requests involving the user.
+     *
+     * friend_requests uses:
+     *
+     *   sender_id
+     *   recipient_id
+     *   status
+     *
+     * We only need pending requests here.
+     * --------------------------------------------------
+     */
+
+    const {
+      data: friendRequests,
+      error: friendRequestsError,
+    } = await adminSupabase
+      .from("friend_requests")
+      .select(
+        `
+          sender_id,
+          recipient_id,
+          status
+        `,
+      )
+      .or(
+        `sender_id.eq.${user.id},recipient_id.eq.${user.id}`,
+      );
 
     if (friendRequestsError) {
       console.error(
-        "Failed to load friend request relationships:",
+        "[discover/profiles] Friend request error:",
         friendRequestsError,
       );
 
@@ -129,132 +174,307 @@ export async function GET(request: Request) {
         {
           error:
             "Failed to load discover relationships.",
+          details:
+            process.env.NODE_ENV ===
+            "development"
+              ? friendRequestsError.message
+              : undefined,
         },
         { status: 500 },
       );
     }
 
+    /*
+     * --------------------------------------------------
+     * 4. Load existing friendships.
+     * --------------------------------------------------
+     */
+
+    const {
+      data: friendships,
+      error: friendshipsError,
+    } = await adminSupabase
+      .from("friendships")
+      .select(
+        `
+          user_id,
+          friend_id
+        `,
+      )
+      .or(
+        `user_id.eq.${user.id},friend_id.eq.${user.id}`,
+      );
+
     if (friendshipsError) {
       console.error(
-        "Failed to load friendship relationships:",
+        "[discover/profiles] Friendship error:",
         friendshipsError,
       );
 
       return NextResponse.json(
         {
           error:
-            "Failed to load discover relationships.",
+            "Failed to load discover friendships.",
+          details:
+            process.env.NODE_ENV ===
+            "development"
+              ? friendshipsError.message
+              : undefined,
         },
         { status: 500 },
       );
     }
 
     /*
-     * Build a set of profile IDs that should not appear
-     * in Discover.
+     * --------------------------------------------------
+     * 5. Build the exclusion set.
+     *
+     * We exclude:
+     *
+     * - current user
+     * - pending friend requests
+     * - existing friendships
+     *
+     * Declined requests are NOT excluded.
+     * --------------------------------------------------
      */
-    const excludedProfileIds = new Set<string>();
 
-    for (const friendRequest of friendRequests ?? []) {
-      if (friendRequest.status !== "pending") {
+    const excludedProfileIds =
+      new Set<string>();
+
+    excludedProfileIds.add(user.id);
+
+    for (const requestRow of
+      friendRequests ?? []) {
+      if (
+        requestRow.status !==
+        "pending"
+      ) {
         continue;
       }
 
-      const otherProfileId =
-        friendRequest.sender_id === user.id
-          ? friendRequest.recipient_id
-          : friendRequest.sender_id;
+      const otherUserId =
+        requestRow.sender_id ===
+        user.id
+          ? requestRow.recipient_id
+          : requestRow.sender_id;
 
-      if (otherProfileId) {
-        excludedProfileIds.add(otherProfileId);
+      if (
+        typeof otherUserId ===
+        "string"
+      ) {
+        excludedProfileIds.add(
+          otherUserId,
+        );
       }
     }
 
-    for (const friendship of friendships ?? []) {
-      const otherProfileId =
-        friendship.user_id === user.id
+    for (const friendship of
+      friendships ?? []) {
+      const otherUserId =
+        friendship.user_id ===
+        user.id
           ? friendship.friend_id
           : friendship.user_id;
 
-      if (otherProfileId) {
-        excludedProfileIds.add(otherProfileId);
+      if (
+        typeof otherUserId ===
+        "string"
+      ) {
+        excludedProfileIds.add(
+          otherUserId,
+        );
       }
     }
 
     /*
-     * Load profiles after relationship filtering.
+     * --------------------------------------------------
+     * 6. Load ALL profiles.
      *
-     * We still fetch the profile collection normally and
-     * filter the relationship IDs in application code.
-     * This keeps the query straightforward and avoids
-     * depending on complex relational filters.
+     * The service-role client intentionally bypasses
+     * normal RLS restrictions for this server-side
+     * discovery operation.
+     * --------------------------------------------------
      */
+
     const {
-      data,
-      error,
-    } = await supabase
+      data: profileRows,
+      error: profilesError,
+    } = await adminSupabase
       .from("profiles")
-      .select(`
-        id,
-        username,
-        full_name,
-        featured_interest,
-        bio,
-        profile_image_url,
-        location,
-        created_at,
-        updated_at
-      `)
-      .neq("id", user.id)
+      .select(
+        `
+          id,
+          username,
+          full_name,
+          featured_interest,
+          bio,
+          profile_image_url,
+          location,
+          created_at,
+          updated_at
+        `,
+      )
       .order("created_at", {
         ascending: false,
       });
 
-    if (error) {
+    if (profilesError) {
       console.error(
-        "Failed to load discover profiles:",
-        error,
+        "[discover/profiles] Profiles error:",
+        profilesError,
       );
 
       return NextResponse.json(
         {
           error:
             "Failed to load profiles.",
+          details:
+            process.env.NODE_ENV ===
+            "development"
+              ? profilesError.message
+              : undefined,
         },
         { status: 500 },
       );
     }
 
-    const profiles = (data ?? [])
+    /*
+     * --------------------------------------------------
+     * 7. Convert database rows into the exact shape
+     * expected by the Discover/Home components.
+     * --------------------------------------------------
+     */
+
+    const profiles = (
+      profileRows ?? []
+    )
       .filter(
         (profile) =>
-          !excludedProfileIds.has(profile.id),
+          profile &&
+          typeof profile.id ===
+            "string",
       )
-      .map((profile) => ({
-        profile_id: profile.id,
-        username: profile.username,
-        display_name:
-          profile.full_name ||
-          profile.username ||
-          "myFolks user",
-        featured_interest:
-          profile.featured_interest || "",
-        bio: profile.bio || "",
-        location:
-          profile.location || "",
-        photo_url:
-          profile.profile_image_url ||
-          undefined,
-        visibility: "published",
-        allows_messages: true,
-      }));
+      .filter(
+        (profile) =>
+          !excludedProfileIds.has(
+            profile.id,
+          ),
+      )
+      .map((profile) => {
+        const username =
+          typeof profile.username ===
+          "string"
+            ? profile.username.trim()
+            : "";
 
-    return NextResponse.json({
-      profiles,
-    });
+        const fullName =
+          typeof profile.full_name ===
+          "string"
+            ? profile.full_name.trim()
+            : "";
+
+        const featuredInterest =
+          typeof profile.featured_interest ===
+          "string"
+            ? profile.featured_interest.trim()
+            : "";
+
+        const bio =
+          typeof profile.bio ===
+          "string"
+            ? profile.bio.trim()
+            : "";
+
+        const location =
+          typeof profile.location ===
+          "string"
+            ? profile.location.trim()
+            : "";
+
+        const profileImageUrl =
+          typeof profile.profile_image_url ===
+          "string"
+            ? profile.profile_image_url.trim()
+            : "";
+
+        return {
+          profile_id: profile.id,
+
+          username:
+            username || undefined,
+
+          display_name:
+            fullName ||
+            username ||
+            "myFolks user",
+
+          featured_interest:
+            featuredInterest,
+
+          bio,
+
+          location,
+
+          photo_url:
+            profileImageUrl ||
+            undefined,
+
+          visibility: "published" as const,
+
+          allows_messages: true,
+        };
+      });
+
+    /*
+     * --------------------------------------------------
+     * 8. Helpful server-side diagnostics.
+     * --------------------------------------------------
+     */
+
+    console.log(
+      "[discover/profiles] Discovery result:",
+      {
+        currentUserId: user.id,
+
+        totalProfiles:
+          profileRows?.length ?? 0,
+
+        excludedProfiles:
+          excludedProfileIds.size,
+
+        discoverableProfiles:
+          profiles.length,
+
+        discoverableProfileIds:
+          profiles.map(
+            (profile) =>
+              profile.profile_id,
+          ),
+      },
+    );
+
+    /*
+     * --------------------------------------------------
+     * 9. Return the profiles.
+     * --------------------------------------------------
+     */
+
+    return NextResponse.json(
+      {
+        profiles,
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control":
+            "no-store, max-age=0",
+        },
+      },
+    );
   } catch (error) {
     console.error(
-      "Discover profiles API error:",
+      "[discover/profiles] Unexpected error:",
       error,
     );
 
