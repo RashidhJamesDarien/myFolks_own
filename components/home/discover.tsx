@@ -1,7 +1,6 @@
 "use client";
 
 import { Icon } from "./Icon";
-import { Eyebrow } from "./Eyebrow";
 import { StatusMessage } from "./StatusMessage";
 import { ProfileCard } from "./ProfileCard";
 import type { Profile, StatusValue } from "./types";
@@ -37,20 +36,15 @@ export function DiscoverView({
   onBlock: (profile: Profile) => void;
   onRetry: () => void;
 }) {
-  const loading =
-    discoverState === "loading";
-
-  const empty =
-    discoverState === "empty";
-
-  const error =
-    discoverState === "error";
+  const loading = discoverState === "loading";
+  const empty = discoverState === "empty";
+  const error = discoverState === "error";
 
   /*
    * The pair itself is the source of truth for rendering.
    *
-   * Previously, `insufficient` could hide the cards even
-   * when Home had already successfully built a pair.
+   * This prevents the fallback state from hiding a valid
+   * pair that Home has already prepared.
    */
   const hasPair =
     currentPair.length === 2 &&
@@ -65,69 +59,23 @@ export function DiscoverView({
     visibleProfilesCount < 2;
 
   return (
-    <section className="view-panel">
-      <div className="section-heading-row">
-        <div>
-          <Eyebrow>
-            Shared-interest discovery
-          </Eyebrow>
-
-          <h1>
-            Which interest feels familiar?
-          </h1>
-
-          <p>
-            Choose the featured interest you connect with
-            most. It&apos;s about finding common ground,
-            never judging people.
-          </p>
-        </div>
-
-        <div className="progress-card">
-          <div className="progress-header">
-            <span>Your session</span>
-
-            <span>
-              {progressTotal
-                ? `Pair ${progressCurrent} of ${progressTotal}`
-                : "No pairs"}
-            </span>
-          </div>
-
-          <div className="progress-track">
-            <div
-              className="progress-fill"
-              style={{
-                width: `${progressPercent}%`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
+    <section className="view-panel discover-view">
       {loading && (
-        <div className="state-card">
-          <Icon
-            name="loader"
-            size={32}
-          />
+        <div className="state-card discover-state-card">
+          <Icon name="loader" size={32} />
 
-          <p>
-            Loading profiles to discover…
-          </p>
+          <p>Finding people to discover…</p>
         </div>
       )}
 
       {empty && !hasPair && (
-        <div className="state-card">
-          <p>
-            No profiles to discover yet.
-          </p>
+        <div className="state-card discover-state-card">
+          <p>No profiles to discover yet.</p>
         </div>
       )}
 
       {error && !hasPair && (
-        <div className="state-card error-state">
+        <div className="state-card error-state discover-state-card">
           <p>
             Profiles could not be loaded right now.
             Please try again.
@@ -152,14 +100,9 @@ export function DiscoverView({
 
       {insufficient && (
         <div className="insufficient-card">
-          <Icon
-            name="users"
-            size={40}
-          />
+          <Icon name="users" size={40} />
 
-          <h2>
-            More profiles are needed
-          </h2>
+          <h2>More profiles are needed</h2>
 
           <p>
             There are not enough available profiles to
@@ -172,44 +115,70 @@ export function DiscoverView({
 
       {hasPair && (
         <>
+          <div className="discover-intro">
+            <div>
+              <span className="discover-kicker">
+                Discover people
+              </span>
+
+              <h1>Find your people.</h1>
+
+              <p>
+                Choose the person you feel most connected
+                to, or skip to discover another pair.
+              </p>
+            </div>
+
+            <div className="discover-progress">
+              <span>
+                {progressTotal
+                  ? `${progressCurrent} / ${progressTotal}`
+                  : "Discover"}
+              </span>
+
+              <div
+                className="discover-progress-track"
+                aria-hidden="true"
+              >
+                <div
+                  className="discover-progress-fill"
+                  style={{
+                    width: `${progressPercent}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="pair-grid">
             <ProfileCard
               profile={currentPair[0]}
               variant="coral"
-              onChoose={() =>
-                onChoose(0)
-              }
+              onChoose={() => onChoose(0)}
               onReport={() =>
-                onReport(
-                  currentPair[0],
-                )
+                onReport(currentPair[0])
               }
               onBlock={() =>
-                onBlock(
-                  currentPair[0],
-                )
+                onBlock(currentPair[0])
               }
             />
 
-            <div className="or-badge">
+            <div
+              className="or-badge"
+              aria-hidden="true"
+            >
               OR
             </div>
 
             <ProfileCard
               profile={currentPair[1]}
               variant="lavender"
-              onChoose={() =>
-                onChoose(1)
-              }
+              onChoose={() => onChoose(1)}
               onReport={() =>
-                onReport(
-                  currentPair[1],
-                )
+                onReport(currentPair[1])
               }
               onBlock={() =>
-                onBlock(
-                  currentPair[1],
-                )
+                onBlock(currentPair[1])
               }
             />
           </div>
@@ -217,14 +186,17 @@ export function DiscoverView({
           <div className="discovery-controls">
             <button
               type="button"
-              className="button lavender"
+              className="button lavender discovery-skip-button"
               onClick={onSkip}
             >
               Skip this pair
             </button>
 
             <span className="selection-count">
-              {positiveSelections.length} selections
+              {positiveSelections.length}{" "}
+              {positiveSelections.length === 1
+                ? "connection"
+                : "connections"}
             </span>
           </div>
         </>

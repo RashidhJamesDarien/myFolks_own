@@ -17,22 +17,36 @@ export function ProfileCard({
   onBlock: () => void;
 }) {
   return (
-    <article className="profile-card">
-      <div className="profile-header">
-        <Avatar profile={profile} />
+    <article
+      className={`profile-card profile-card-${variant}`}
+    >
+      <div className="profile-card-top">
+        <div className="profile-header">
+          <Avatar profile={profile} />
 
-        <div className="profile-heading">
-          <span>A myFolks profile</span>
+          <div className="profile-heading">
+            <span>myFolks member</span>
 
-          <h2>{profile.display_name}</h2>
+            <h2>{profile.display_name}</h2>
+
+            {profile.username && (
+              <p className="profile-username">
+                @{profile.username}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className={`interest-box ${variant}`}>
-        <span>Featured interest</span>
+      {profile.featured_interest && (
+        <div className="profile-interest">
+          <span>Featured interest</span>
 
-        <strong>{profile.featured_interest}</strong>
-      </div>
+          <strong>
+            {profile.featured_interest}
+          </strong>
+        </div>
+      )}
 
       {profile.bio && (
         <p className="profile-bio">
@@ -40,28 +54,30 @@ export function ProfileCard({
         </p>
       )}
 
-      <button
-        type="button"
-        className="button primary full-width"
-        onClick={onChoose}
-      >
-        I relate to this
-      </button>
-
-      <div className="profile-actions">
+      <div className="profile-card-bottom">
         <button
           type="button"
-          onClick={onReport}
+          className="button primary full-width profile-connect-button"
+          onClick={onChoose}
         >
-          Report
+          <span>Connect</span>
         </button>
 
-        <button
-          type="button"
-          onClick={onBlock}
-        >
-          Block
-        </button>
+        <div className="profile-actions">
+          <button
+            type="button"
+            onClick={onReport}
+          >
+            Report
+          </button>
+
+          <button
+            type="button"
+            onClick={onBlock}
+          >
+            Block
+          </button>
+        </div>
       </div>
     </article>
   );
