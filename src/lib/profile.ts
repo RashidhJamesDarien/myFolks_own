@@ -1,5 +1,10 @@
 import { supabase } from "@/src/lib/supabase";
 
+export type LastSeenVisibility =
+  | "everyone"
+  | "friends"
+  | "nobody";
+
 export type SupabaseProfile = {
   id: string;
   username: string;
@@ -8,6 +13,8 @@ export type SupabaseProfile = {
   bio: string | null;
   profile_image_url: string | null;
   location: string | null;
+  last_seen_at: string | null;
+  last_seen_visibility: LastSeenVisibility;
   created_at: string;
   updated_at: string;
 };
@@ -83,6 +90,8 @@ export async function createProfile({
       location: location?.trim() || null,
       profile_image_url:
         profileImageUrl || null,
+      last_seen_at: new Date().toISOString(),
+      last_seen_visibility: "friends",
     })
     .select()
     .single();
@@ -124,36 +133,25 @@ export async function updateProfile({
     );
   }
 
-  const updates: Record<
-    string,
-    unknown
-  > = {
-    updated_at:
-      new Date().toISOString(),
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
   };
 
   if (username !== undefined) {
-    updates.username =
-      username.trim();
+    updates.username = username.trim();
   }
 
   if (fullName !== undefined) {
-    updates.full_name =
-      fullName.trim();
+    updates.full_name = fullName.trim();
   }
 
-  if (
-    featuredInterest !==
-    undefined
-  ) {
+  if (featuredInterest !== undefined) {
     updates.featured_interest =
-      featuredInterest.trim() ||
-      null;
+      featuredInterest.trim() || null;
   }
 
   if (bio !== undefined) {
-    updates.bio =
-      bio.trim() || null;
+    updates.bio = bio.trim() || null;
   }
 
   if (location !== undefined) {
@@ -161,27 +159,81 @@ export async function updateProfile({
       location.trim() || null;
   }
 
-  if (
-    profileImageUrl !==
-    undefined
-  ) {
+  if (profileImageUrl !== undefined) {
     updates.profile_image_url =
       profileImageUrl;
   }
 
-  const { data, error } =
-    await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("id", user.id)
-      .select()
-      .single();
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", user.id)
+    .select()
+    .single();
 
   if (error) {
     throw error;
   }
 
   return data as SupabaseProfile;
+}
+
+export async function updateLastSeen(
+  timestamp = new Date().toISOString(),
+): Promise<void> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    throw userError;
+  }
+
+  if (!user) {
+    return;
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      last_seen_at: timestamp,
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function updateLastSeenVisibility(
+  visibility: LastSeenVisibility,
+): Promise<void> {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError) {
+    throw userError;
+  }
+
+  if (!user) {
+    throw new Error(
+      "You must be signed in.",
+    );
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      last_seen_visibility: visibility,
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function deleteCurrentProfile(): Promise<void> {
@@ -200,11 +252,10 @@ export async function deleteCurrentProfile(): Promise<void> {
     );
   }
 
-  const { error } =
-    await supabase
-      .from("profiles")
-      .delete()
-      .eq("id", user.id);
+  const { error } = await supabase
+    .from("profiles")
+    .delete()
+    .eq("id", user.id);
 
   if (error) {
     throw error;

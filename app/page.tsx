@@ -443,11 +443,14 @@ export default function Home() {
           <MessagesView
             friends={relationships.friends}
             activeProfile={messaging.activeProfile}
+            conversationProfile={messaging.conversationProfile}
             mobileOpen={messaging.open}
             messageText={messaging.text}
             messageAsset={messaging.asset}
             messageStatus={messaging.status}
             messageSending={messaging.sending}
+            messageLoading={messaging.loadingMessages}
+            messages={messaging.messages}
             messageCount={messaging.count}
             fileInputRef={messaging.fileInputRef}
             onSelect={messaging.openConversation}

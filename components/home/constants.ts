@@ -1,3 +1,5 @@
+import type { Settings } from "./types";
+
 export const API = {
   health: "/api/health",
 
@@ -24,7 +26,9 @@ export const API = {
   signOut: "/api/auth/signout",
 
   accountDelete: "/api/account/delete",
-};
+
+  presence: "/api/presence",
+} as const;
 
 export const MAX_PROFILE_PHOTO_SIZE =
   10 * 1024 * 1024;
@@ -91,7 +95,7 @@ export const DISCOVERY_ROUNDS = 6;
 /**
  * Default privacy and notification settings.
  */
-export const DEFAULT_SETTINGS = {
+export const DEFAULT_SETTINGS: Settings = {
   visibility: "published",
   lastSeenVisibility: "friends",
   interestDisplay: true,

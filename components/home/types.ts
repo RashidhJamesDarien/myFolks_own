@@ -6,6 +6,11 @@ export type View =
   | "profile"
   | "settings";
 
+export type LastSeenVisibility =
+  | "everyone"
+  | "friends"
+  | "nobody";
+
 export type Profile = {
   profile_id: string;
   username?: string;
@@ -16,11 +21,20 @@ export type Profile = {
   visibility?: string;
   allows_messages?: boolean;
   photo_url?: string;
+
+  /**
+   * Presence information.
+   *
+   * These fields are supplied by the server only when
+   * the viewer is allowed to see them.
+   */
+  last_seen_at?: string | null;
+  last_seen_visibility?: LastSeenVisibility;
 };
 
 export type Settings = {
   visibility: string;
-  lastSeenVisibility: string;
+  lastSeenVisibility: LastSeenVisibility;
   interestDisplay: boolean;
   messagePermission: string;
   friendNotifications: boolean;
@@ -41,6 +55,8 @@ export type Message = {
   created_at?: string;
   message_asset_url?: string;
   message_asset_name?: string;
+  message_asset_type?: string;
+  message_asset_size?: number;
 };
 
 export type UploadedProfilePhoto = {
@@ -144,9 +160,6 @@ export type DiscoverState =
 
 /**
  * Legacy profile API response.
- *
- * The legacy endpoint may either return the profile
- * directly or wrap it in a `profile` property.
  */
 export type LegacyProfileResponse = {
   profile?: Profile;
@@ -159,4 +172,6 @@ export type LegacyProfileResponse = {
   visibility?: string;
   allows_messages?: boolean;
   photo_url?: string;
+  last_seen_at?: string | null;
+  last_seen_visibility?: LastSeenVisibility;
 };
