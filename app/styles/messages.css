@@ -850,20 +850,48 @@
 @media (max-width: 800px) {
   .myfolks-messages {
     width: 100%;
-
     height: calc(100dvh - 110px);
     min-height: 0;
 
-    grid-template-columns: 1fr;
+    display: block;
 
     padding: 10px;
   }
 
+  /*
+   * MOBILE LIST STATE
+   *
+   * When no conversation is open, the connected
+   * people list fills the available space.
+   */
   .message-panel {
+    display: flex;
+
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+  }
+
+  /*
+   * MOBILE CONVERSATION STATE
+   *
+   * When a conversation is active, hide the
+   * connected list so the conversation gets
+   * the complete mobile viewport.
+   */
+  .myfolks-messages:has(
+    .conversation-panel.mobile-active
+  ) .message-panel {
     display: none;
   }
 
+  /*
+   * A conversation is hidden until the user
+   * selects someone.
+   */
   .conversation-panel {
+    display: none;
+
     width: 100%;
     height: 100%;
     min-height: 0;
@@ -871,10 +899,6 @@
 
   .conversation-panel.mobile-active {
     display: flex;
-  }
-
-  .conversation-panel:not(.mobile-active) {
-    display: none;
   }
 
   .back-button {
