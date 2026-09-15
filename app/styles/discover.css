@@ -1,0 +1,280 @@
+/* =========================================================
+   DISCOVERY — PAIR GRID & PROFILE CARDS
+   ========================================================= */
+
+.pair-grid {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto
+    minmax(0, 1fr);
+
+  align-items: stretch;
+
+  gap: 1.25rem;
+}
+
+.profile-card {
+  min-width: 0;
+
+  padding: 1.75rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 2rem;
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.profile-card:hover {
+  transform: translateY(-3px);
+
+  box-shadow: var(--shadow-lifted);
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+
+  gap: 1rem;
+}
+
+/* ---------- Avatars ---------- */
+
+.avatar {
+  width: 80px;
+  height: 80px;
+
+  flex: 0 0 auto;
+
+  display: grid;
+  place-items: center;
+
+  overflow: hidden;
+
+  border-radius: 1.45rem;
+
+  border: 1px solid rgba(37, 33, 31, 0.08);
+
+  background: linear-gradient(135deg, #f8d5ca, #e8ddfb);
+
+  color: var(--ink);
+
+  font-size: 1.45rem;
+  font-weight: 800;
+}
+
+.avatar-image {
+  width: 80px;
+  height: 80px;
+
+  flex: 0 0 auto;
+
+  border-radius: 1.45rem;
+
+  object-fit: cover;
+}
+
+.avatar-large,
+.avatar-image.avatar-large {
+  width: 112px;
+  height: 112px;
+
+  border-radius: 2rem;
+}
+
+/* ---------- Card copy ---------- */
+
+.profile-heading {
+  min-width: 0;
+}
+
+.profile-heading > span {
+  display: block;
+
+  color: var(--muted);
+
+  font-size: 0.72rem;
+  font-weight: 700;
+
+  letter-spacing: 0.12em;
+
+  text-transform: uppercase;
+}
+
+.profile-heading h2 {
+  margin: 0.25rem 0 0;
+
+  overflow-wrap: anywhere;
+
+  color: var(--ink);
+
+  font-size: 1.65rem;
+  line-height: 1.1;
+  font-weight: 800;
+
+  letter-spacing: -0.035em;
+}
+
+.interest-box {
+  margin-top: 1.5rem;
+
+  padding: 1.25rem;
+
+  border-radius: 1rem;
+}
+
+.interest-box.coral {
+  background: var(--surface-warm);
+}
+
+.interest-box.lavender {
+  background: var(--surface-info);
+}
+
+.interest-box span {
+  display: block;
+
+  color: var(--danger);
+
+  font-size: 0.72rem;
+  font-weight: 700;
+
+  letter-spacing: 0.12em;
+
+  text-transform: uppercase;
+}
+
+.interest-box strong {
+  display: block;
+
+  margin-top: 0.5rem;
+
+  font-size: 1.25rem;
+  line-height: 1.6;
+}
+
+.profile-bio {
+  margin: 1.25rem 0 0;
+
+  color: var(--muted);
+
+  line-height: 1.7;
+}
+
+.or-badge {
+  width: 44px;
+  height: 44px;
+
+  align-self: center;
+
+  display: grid;
+  place-items: center;
+
+  border: 1px solid var(--line);
+
+  border-radius: 999px;
+
+  background: var(--paper);
+
+  color: var(--muted);
+
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+html[data-theme="dark"] .or-badge {
+  background: var(--surface-raised);
+}
+
+/* ---------- Card actions ---------- */
+
+.profile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 1rem;
+
+  margin-top: 0.8rem;
+}
+
+.profile-actions button {
+  border: 0;
+
+  padding: 0.4rem;
+
+  color: var(--muted);
+
+  background: transparent;
+
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.discovery-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 1rem;
+
+  margin-top: 1.5rem;
+}
+
+.selection-count {
+  padding: 0.55rem 0.8rem;
+
+  border-radius: 999px;
+
+  background: var(--surface);
+
+  color: var(--muted);
+
+  font-size: 0.85rem;
+  font-weight: 700;
+
+  box-shadow: 0 4px 14px rgba(55, 40, 31, 0.06);
+}
+
+html[data-theme="dark"] .selection-count {
+  background: var(--surface-raised);
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .pair-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .or-badge {
+    margin: 0 auto;
+  }
+
+  .profile-card {
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-header {
+    align-items: flex-start;
+  }
+
+  .avatar,
+  .avatar-image {
+    width: 68px;
+    height: 68px;
+  }
+
+  .profile-heading h2 {
+    font-size: 1.35rem;
+  }
+}

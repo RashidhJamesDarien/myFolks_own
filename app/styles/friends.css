@@ -1,0 +1,58 @@
+/* =========================================================
+   FRIENDS LIST
+   ========================================================= */
+
+.friends-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 1rem;
+
+  margin-top: 2rem;
+}
+
+.friend-card {
+  display: grid;
+
+  grid-template-columns:
+    auto
+    minmax(0, 1fr)
+    auto;
+
+  align-items: center;
+
+  gap: 1rem;
+
+  padding: 1rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 1.5rem;
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow);
+}
+
+.friend-card h2 {
+  margin: 0;
+
+  font-size: 1.1rem;
+}
+
+.friend-card p {
+  margin: 0.25rem 0 0;
+
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .friend-card button {
+  color: var(--ink);
+}
+
+@media (max-width: 760px) {
+  .friends-grid {
+    grid-template-columns: 1fr;
+  }
+}

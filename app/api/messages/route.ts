@@ -135,34 +135,42 @@ function normalizeMessage(
       typeof message.id === "string"
         ? message.id
         : undefined,
+
     sender_id:
       message.sender_id,
+
     recipient_id:
       message.recipient_id,
+
     text:
       typeof message.text === "string"
         ? message.text
         : "",
+
     message_asset_url:
       typeof message.message_asset_url ===
       "string"
         ? message.message_asset_url
         : undefined,
+
     message_asset_name:
       typeof message.message_asset_name ===
       "string"
         ? message.message_asset_name
         : undefined,
+
     message_asset_type:
       typeof message.message_asset_type ===
       "string"
         ? message.message_asset_type
         : undefined,
+
     message_asset_size:
       typeof message.message_asset_size ===
       "number"
         ? message.message_asset_size
         : undefined,
+
     created_at:
       typeof message.created_at === "string"
         ? message.created_at
@@ -177,14 +185,15 @@ async function areFriends(
   userId: string,
   otherUserId: string,
 ) {
-  const { data, error } = await admin
-    .from("friend_requests")
-    .select("id")
-    .eq("status", "accepted")
-    .or(
-      `and(sender_id.eq.${userId},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${userId})`,
-    )
-    .limit(1);
+  const { data, error } =
+    await admin
+      .from("friend_requests")
+      .select("id")
+      .eq("status", "accepted")
+      .or(
+        `and(sender_id.eq.${userId},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${userId})`,
+      )
+      .limit(1);
 
   if (error) {
     throw error;
@@ -237,9 +246,8 @@ export async function GET(
       );
     }
 
-    const url = new URL(
-      request.url,
-    );
+    const url =
+      new URL(request.url);
 
     const profileId =
       url.searchParams.get(
@@ -259,7 +267,9 @@ export async function GET(
       );
     }
 
-    if (profileId === user.id) {
+    if (
+      profileId === user.id
+    ) {
       return NextResponse.json(
         {
           error:
@@ -272,7 +282,10 @@ export async function GET(
     const admin =
       createAdminClient();
 
-    const { data: recipient, error: recipientError } =
+    const {
+      data: recipient,
+      error: recipientError,
+    } =
       await admin
         .from("profiles")
         .select(
@@ -315,20 +328,21 @@ export async function GET(
     const {
       data: messages,
       error: messagesError,
-    } = await admin
-      .from("messages")
-      .select(
-        "id,sender_id,recipient_id,text,message_asset_url,message_asset_name,message_asset_type,message_asset_size,created_at",
-      )
-      .or(
-        `and(sender_id.eq.${user.id},recipient_id.eq.${profileId}),and(sender_id.eq.${profileId},recipient_id.eq.${user.id})`,
-      )
-      .order(
-        "created_at",
-        {
-          ascending: true,
-        },
-      );
+    } =
+      await admin
+        .from("messages")
+        .select(
+          "id,sender_id,recipient_id,text,message_asset_url,message_asset_name,message_asset_type,message_asset_size,created_at",
+        )
+        .or(
+          `and(sender_id.eq.${user.id},recipient_id.eq.${profileId}),and(sender_id.eq.${profileId},recipient_id.eq.${user.id})`,
+        )
+        .order(
+          "created_at",
+          {
+            ascending: true,
+          },
+        );
 
     if (messagesError) {
       throw messagesError;
@@ -360,22 +374,32 @@ export async function GET(
     return NextResponse.json({
       messages:
         normalizedMessages,
+
       count:
         normalizedMessages.length,
+
       profile: {
-        profile_id: recipient.id,
+        profile_id:
+          recipient.id,
+
         username:
           recipient.username,
+
         display_name:
           recipient.full_name,
+
         photo_url:
           recipient.profile_image_url,
+
         last_seen_at:
           showLastSeen
             ? recipient.last_seen_at
             : null,
+
         last_seen_visibility:
-          visibility,
+          showLastSeen
+            ? visibility
+            : "nobody",
       },
     });
   } catch (error) {
@@ -440,7 +464,9 @@ export async function POST(
       );
     }
 
-    if (profileId === user.id) {
+    if (
+      profileId === user.id
+    ) {
       return NextResponse.json(
         {
           error:
@@ -523,11 +549,21 @@ export async function POST(
     const admin =
       createAdminClient();
 
-    const { data: recipient, error: recipientError } =
+    /**
+     * Verify that the recipient profile exists.
+     *
+     * Do not query `allows_messages` here because
+     * that column does not exist in the current
+     * profiles table.
+     */
+    const {
+      data: recipient,
+      error: recipientError,
+    } =
       await admin
         .from("profiles")
         .select(
-          "id,allows_messages",
+          "id",
         )
         .eq("id", profileId)
         .maybeSingle();
@@ -546,6 +582,10 @@ export async function POST(
       );
     }
 
+    /**
+     * Messaging is currently restricted to
+     * accepted friends.
+     */
     const friends =
       await areFriends(
         admin,
@@ -563,32 +603,33 @@ export async function POST(
       );
     }
 
-    if (
-      recipient.allows_messages ===
-      false
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "This person is not accepting messages right now.",
-        },
-        { status: 403 },
-      );
-    }
-
-    const { data, error } =
+    /**
+     * Insert the message.
+     */
+    const {
+      data,
+      error,
+    } =
       await admin
         .from("messages")
         .insert({
-          sender_id: user.id,
-          recipient_id: profileId,
+          sender_id:
+            user.id,
+
+          recipient_id:
+            profileId,
+
           text,
+
           message_asset_url:
             assetUrl || null,
+
           message_asset_name:
             assetName || null,
+
           message_asset_type:
             assetType || null,
+
           message_asset_size:
             assetSize,
         })

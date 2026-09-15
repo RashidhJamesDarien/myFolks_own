@@ -1,0 +1,217 @@
+/* =========================================================
+   STATUS / LOADING / EMPTY STATES
+   ========================================================= */
+
+.state-card {
+  display: grid;
+  place-items: center;
+
+  min-height: 160px;
+
+  margin-bottom: 1.5rem;
+
+  padding: 2rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 1.25rem;
+
+  background: var(--surface);
+
+  text-align: center;
+
+  box-shadow: var(--shadow);
+}
+
+.state-card svg {
+  color: var(--coral);
+
+  animation: spin 1s linear infinite;
+}
+
+.state-card p {
+  margin: 0.8rem 0 0;
+
+  font-weight: 600;
+}
+
+.state-card.error-state {
+  color: var(--danger);
+
+  background: var(--danger-bg);
+}
+
+.state-card.error-state svg {
+  display: none;
+}
+
+/* ---------- Inline status messages ---------- */
+
+.status-message {
+  margin-top: 1rem;
+
+  padding: 0.8rem 1rem;
+
+  border: 1px solid transparent;
+
+  border-radius: 0.8rem;
+
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.status-message.info {
+  border-color: #d7caec;
+
+  background: var(--surface-info);
+
+  color: var(--purple-text);
+}
+
+html[data-theme="dark"] .status-message.info {
+  border-color: #51456b;
+}
+
+.status-message.success {
+  border-color: #b9d8c1;
+
+  background: var(--success-bg);
+
+  color: var(--success);
+}
+
+.status-message.error {
+  border-color: #f0b7ac;
+
+  background: var(--danger-bg);
+
+  color: var(--danger);
+}
+
+/* ---------- Empty banners ---------- */
+
+.empty-banner {
+  display: flex;
+  align-items: center;
+
+  gap: 1rem;
+
+  margin-top: 2rem;
+
+  padding: 1rem 1.25rem;
+
+  border-radius: 1rem;
+
+  background: var(--surface-info);
+
+  color: var(--purple-text);
+
+  font-weight: 600;
+}
+
+.empty-banner p {
+  margin: 0;
+}
+
+.insufficient-card {
+  padding: 3rem;
+
+  border: 1px dashed #d7caec;
+
+  border-radius: 2rem;
+
+  background: var(--surface);
+
+  text-align: center;
+}
+
+html[data-theme="dark"] .insufficient-card {
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+.insufficient-card svg {
+  color: var(--purple);
+}
+
+.insufficient-card h2 {
+  margin: 1rem 0 0;
+
+  font-size: 1.5rem;
+}
+
+.insufficient-card p {
+  max-width: 38rem;
+
+  margin: 0.75rem auto 0;
+
+  color: var(--muted);
+
+  line-height: 1.7;
+}
+
+/* ---------- Progress ---------- */
+
+.progress-card {
+  width: 210px;
+
+  flex: 0 0 auto;
+
+  padding: 0.9rem 1rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 1rem;
+
+  background: var(--surface);
+
+  box-shadow: 0 5px 18px rgba(55, 40, 31, 0.05);
+}
+
+html[data-theme="dark"] .progress-card {
+  box-shadow: var(--shadow);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+
+  gap: 1rem;
+
+  color: var(--muted);
+
+  font-size: 0.7rem;
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+
+  text-transform: uppercase;
+}
+
+.progress-track {
+  height: 8px;
+
+  margin-top: 0.6rem;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background: var(--track);
+}
+
+.progress-fill {
+  height: 100%;
+
+  border-radius: inherit;
+
+  background: var(--coral);
+
+  transition: width 0.45s cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+@media (max-width: 760px) {
+  .progress-card {
+    width: 100%;
+  }
+}

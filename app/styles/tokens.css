@@ -1,0 +1,71 @@
+/* =========================================================
+   DESIGN TOKENS
+   Light is the base; dark overrides the same variable names
+   so every component reads one set of names.
+   ========================================================= */
+
+:root {
+  --ink: #25211f;
+  --paper: #fffaf4;
+  --coral: #e85d4a;
+  --lavender: #e8ddfb;
+  --line: #e7ded5;
+  --muted: #706963;
+  --mist: #f5f0eb;
+
+  --danger: #9d382b;
+  --danger-bg: #fbe1dc;
+
+  --success: #28634b;
+  --success-bg: #d7eadc;
+
+  --purple-text: #55447f;
+  --purple: #79649e;
+
+  /* Surfaces that used to be hardcoded per-rule. */
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #18161d;
+  --surface-info: #f8f4ff;
+  --surface-warm: #fff1ed;
+  --border-strong: #d5c9bd;
+  --track: #efe8e0;
+
+  --shadow: 0 8px 26px rgba(55, 40, 31, 0.08);
+  --shadow-lifted: 0 22px 42px rgba(53, 37, 27, 0.12);
+  --focus-ring: 0 0 0 4px var(--lavender);
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink: #f5f1ec;
+  --paper: #151319;
+  --mist: #211e27;
+  --line: #35303d;
+  --muted: #aaa2b0;
+
+  --coral: #f0715e;
+  --lavender: #302846;
+
+  --purple-text: #c9b9ec;
+  --purple: #a78bca;
+
+  --danger: #ff9a8c;
+  --danger-bg: #3b2423;
+
+  --success: #8ed1ad;
+  --success-bg: #1d3528;
+
+  --surface: #1d1a22;
+  --surface-raised: #211e27;
+  --surface-sunken: #18161d;
+  --surface-info: #282239;
+  --surface-warm: #352321;
+  --border-strong: #514956;
+  --track: #302b35;
+
+  --shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+  --shadow-lifted: 0 22px 42px rgba(0, 0, 0, 0.32);
+  --focus-ring: 0 0 0 4px rgba(167, 139, 202, 0.15);
+}

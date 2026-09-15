@@ -1,0 +1,337 @@
+/* =========================================================
+   HEADER / NAV / MAIN / FOOTER
+   ========================================================= */
+
+.site-header {
+  position: sticky;
+  top: 0;
+
+  z-index: 20;
+
+  border-bottom: 1px solid var(--line);
+
+  background: rgba(255, 250, 244, 0.94);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+html[data-theme="dark"] .site-header {
+  background: rgba(21, 19, 25, 0.92);
+  border-color: var(--line);
+}
+
+.header-inner {
+  width: min(100% - 2.5rem, 72rem);
+
+  min-height: 76px;
+
+  margin: 0 auto;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 1rem;
+}
+
+/* ---------- Brand ---------- */
+
+.brand-button {
+  display: flex;
+  align-items: center;
+
+  gap: 0.75rem;
+
+  border: 0;
+
+  background: transparent;
+
+  padding: 0.35rem;
+
+  border-radius: 0.9rem;
+
+  text-align: left;
+}
+
+.brand-mark,
+.auth-brand-mark {
+  display: grid;
+  place-items: center;
+
+  border-radius: 14px;
+
+  background: linear-gradient(135deg, #25211f, #79649e);
+
+  color: white;
+
+  font-weight: 800;
+
+  box-shadow: 0 8px 22px rgba(121, 100, 158, 0.2);
+}
+
+.brand-mark {
+  width: 44px;
+  height: 44px;
+
+  font-size: 1.45rem;
+}
+
+html[data-theme="dark"] .brand-mark,
+html[data-theme="dark"] .auth-brand-mark {
+  background: linear-gradient(135deg, #f5f1ec, #a78bca);
+  color: #151319;
+}
+
+.brand-logo-image {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+
+  border-radius: inherit;
+}
+
+.wordmark {
+  display: block;
+
+  color: var(--ink);
+
+  font-size: 20px;
+  line-height: 1.1;
+  font-weight: 800;
+
+  letter-spacing: -0.035em;
+}
+
+.tagline {
+  display: block;
+
+  margin-top: 2px;
+
+  color: var(--muted);
+
+  font-size: 12px;
+}
+
+/* ---------- Nav ---------- */
+
+.primary-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  gap: 1.15rem;
+}
+
+.nav-link {
+  border: 0;
+  border-bottom: 2px solid transparent;
+
+  background: transparent;
+
+  padding: 0.65rem 0.15rem;
+
+  color: var(--muted);
+
+  font-size: 0.95rem;
+  font-weight: 600;
+
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--ink);
+}
+
+.nav-link.active {
+  border-bottom-color: var(--coral);
+}
+
+.mobile-menu-toggle {
+  display: none;
+
+  width: 44px;
+  height: 44px;
+
+  place-items: center;
+
+  border: 1px solid var(--line);
+
+  border-radius: 0.85rem;
+
+  background: transparent;
+
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .mobile-menu-toggle {
+  background: var(--surface-raised);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+/* ---------- Main ---------- */
+
+.main-content {
+  width: min(100% - 2.5rem, 72rem);
+
+  margin: 0 auto;
+
+  padding-top: 3rem;
+  padding-bottom: 4rem;
+}
+
+.view-panel {
+  min-height: 35rem;
+
+  animation: rise 0.28s ease both;
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+
+  color: var(--coral);
+
+  font-size: 0.8rem;
+  line-height: 1.3;
+  font-weight: 700;
+
+  letter-spacing: 0.14em;
+
+  text-transform: uppercase;
+}
+
+.view-panel h1 {
+  margin: 0;
+
+  color: var(--ink);
+
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 1.05;
+  font-weight: 800;
+
+  letter-spacing: -0.045em;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  gap: 2rem;
+
+  margin-bottom: 2rem;
+}
+
+.section-heading-row > div:first-child {
+  max-width: 45rem;
+}
+
+.section-heading-row h1 {
+  max-width: 850px;
+}
+
+.section-heading-row p,
+.section-copy {
+  max-width: 46rem;
+
+  margin: 1rem 0 0;
+
+  color: var(--muted);
+
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* ---------- Footer ---------- */
+
+.site-footer {
+  padding: 1.5rem 1.25rem;
+
+  border-top: 1px solid var(--line);
+
+  color: var(--muted);
+
+  text-align: center;
+
+  font-size: 0.85rem;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 760px) {
+  .header-inner {
+    flex-wrap: wrap;
+
+    width: min(100% - 2rem, 72rem);
+  }
+
+  .mobile-menu-toggle {
+    display: grid;
+  }
+
+  .primary-nav {
+    display: none;
+
+    width: 100%;
+
+    flex-direction: column;
+
+    align-items: stretch;
+
+    padding-bottom: 0.75rem;
+
+    gap: 0.2rem;
+  }
+
+  .primary-nav.is-open {
+    display: flex;
+  }
+
+  .nav-link {
+    width: 100%;
+
+    min-height: 44px;
+
+    padding: 0.7rem;
+
+    text-align: left;
+  }
+
+  .main-content {
+    width: min(100% - 2rem, 72rem);
+
+    padding-top: 2rem;
+  }
+
+  .section-heading-row {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 560px) {
+  .header-inner {
+    min-height: 68px;
+  }
+
+  .brand-mark {
+    width: 40px;
+    height: 40px;
+  }
+
+  .main-content {
+    padding-bottom: 2rem;
+  }
+
+  .view-panel h1 {
+    font-size: 2rem;
+  }
+}

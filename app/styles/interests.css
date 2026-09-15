@@ -1,0 +1,346 @@
+/* =========================================================
+   FEATURED INTEREST PICKER
+   ========================================================= */
+
+.interest-field {
+  position: relative;
+}
+
+.interest-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 1rem;
+}
+
+.interest-label-hint {
+  color: var(--muted);
+
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.interest-picker {
+  width: 100%;
+
+  margin-top: 0.15rem;
+}
+
+.interest-bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: 0.65rem;
+
+  margin-top: 0.75rem;
+}
+
+/* ---------- Bubble ---------- */
+
+.interest-bubble {
+  position: relative;
+
+  min-height: 42px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0.6rem 0.95rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 999px;
+
+  background: var(--mist);
+
+  color: var(--ink);
+
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+
+  white-space: nowrap;
+
+  cursor: pointer;
+
+  box-shadow: 0 4px 12px rgba(55, 40, 31, 0.045);
+
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+html[data-theme="dark"] .interest-bubble {
+  background: var(--surface-raised);
+  box-shadow: none;
+}
+
+.interest-bubble:hover {
+  transform: translateY(-2px) scale(1.02);
+
+  border-color: var(--purple);
+
+  background: var(--lavender);
+
+  box-shadow: 0 8px 20px rgba(121, 100, 158, 0.14);
+}
+
+html[data-theme="dark"] .interest-bubble:hover {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+}
+
+.interest-bubble:active {
+  transform: scale(0.95);
+}
+
+.interest-bubble:focus-visible {
+  outline: none;
+
+  box-shadow: var(--focus-ring);
+}
+
+/* ---------- Selected ---------- */
+
+.interest-bubble.is-selected,
+.interest-bubble.is-selected:hover {
+  border-color: var(--coral);
+
+  background: var(--coral);
+
+  color: white;
+
+  box-shadow: 0 9px 22px rgba(232, 93, 74, 0.2);
+}
+
+.interest-bubble.is-selected:hover {
+  box-shadow: 0 10px 24px rgba(232, 93, 74, 0.25);
+}
+
+.interest-bubble-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 16px;
+  height: 16px;
+
+  margin-left: 0.45rem;
+
+  font-size: 0.72rem;
+  font-weight: 900;
+
+  line-height: 1;
+
+  animation:
+    interest-check-pop 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes interest-check-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  70% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---------- Reveal animation ---------- */
+
+.interest-bubble-reveal {
+  opacity: 0;
+
+  animation:
+    interest-bubble-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  animation-delay: var(--interest-delay, 0ms);
+}
+
+@keyframes interest-bubble-pop {
+  0% {
+    opacity: 0;
+
+    transform: translateY(18px) scale(0.55) rotate(-6deg);
+  }
+
+  55% {
+    opacity: 1;
+
+    transform: translateY(-5px) scale(1.08) rotate(2deg);
+  }
+
+  78% {
+    transform: translateY(2px) scale(0.98) rotate(-1deg);
+  }
+
+  100% {
+    opacity: 1;
+
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+/* ---------- More button ---------- */
+
+.interest-more-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 0.35rem;
+
+  margin-top: 0.9rem;
+
+  min-height: 38px;
+
+  padding: 0.45rem 0.75rem;
+
+  border: 1px solid transparent;
+
+  border-radius: 999px;
+
+  background: transparent;
+
+  color: var(--purple);
+
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 750;
+
+  cursor: pointer;
+
+  transition:
+    transform 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease;
+}
+
+.interest-more-button:hover {
+  transform: translateY(-1px);
+
+  border-color: var(--line);
+
+  background: var(--mist);
+
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .interest-more-button:hover {
+  background: var(--surface-raised);
+}
+
+.interest-more-button:active {
+  transform: scale(0.96);
+}
+
+.interest-more-button:focus-visible {
+  outline: none;
+
+  box-shadow: var(--focus-ring);
+}
+
+/* ---------- Custom input ---------- */
+
+.interest-custom-input {
+  margin-top: 1.1rem;
+}
+
+.interest-custom-input input {
+  width: 100%;
+
+  padding: 0.78rem 1rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 0.8rem;
+
+  background: var(--paper);
+
+  color: var(--ink);
+
+  font-family: inherit;
+  font-size: 0.9rem;
+
+  outline: none;
+
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+html[data-theme="dark"] .interest-custom-input input {
+  background: var(--surface-sunken);
+}
+
+.interest-custom-input input::placeholder {
+  color: var(--muted);
+
+  opacity: 0.75;
+}
+
+.interest-custom-input input:focus {
+  border-color: var(--purple);
+
+  box-shadow: 0 0 0 4px rgba(121, 100, 158, 0.12);
+}
+
+html[data-theme="dark"] .interest-custom-input input:focus {
+  box-shadow: 0 0 0 4px rgba(157, 132, 204, 0.15);
+}
+
+.interest-helper {
+  margin: 0.5rem 0 0;
+
+  color: var(--muted);
+
+  font-size: 0.78rem;
+
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .interest-label-row {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 0.25rem;
+  }
+
+  .interest-bubbles {
+    gap: 0.5rem;
+  }
+
+  .interest-bubble {
+    min-height: 38px;
+
+    padding: 0.55rem 0.8rem;
+
+    font-size: 0.82rem;
+  }
+
+  .interest-more-button {
+    width: 100%;
+
+    margin-top: 0.75rem;
+  }
+
+  .interest-custom-input {
+    margin-top: 1rem;
+  }
+}

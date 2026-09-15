@@ -1,0 +1,225 @@
+/* =========================================================
+   THEME TOGGLE & VIEW TRANSITION REVEAL
+   ========================================================= */
+
+.theme-toggle {
+  position: relative;
+
+  width: 42px;
+  height: 42px;
+
+  flex: 0 0 auto;
+
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  border: 1px solid var(--line);
+
+  border-radius: 50%;
+
+  background: var(--mist);
+
+  color: var(--ink);
+
+  cursor: pointer;
+
+  overflow: hidden;
+
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    transform 180ms ease,
+    box-shadow 220ms ease;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+
+  box-shadow: 0 6px 18px rgba(55, 40, 31, 0.12);
+}
+
+.theme-toggle:active {
+  transform: scale(0.92);
+}
+
+.theme-toggle:disabled {
+  cursor: default;
+}
+
+.theme-toggle svg {
+  position: relative;
+
+  z-index: 2;
+
+  transition:
+    transform 400ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease;
+}
+
+html[data-theme="dark"] .theme-toggle {
+  background: #28232f;
+
+  border-color: #403849;
+
+  color: #f5e9b8;
+}
+
+/* ---------- View transition ---------- */
+
+::view-transition-group(root) {
+  animation: none;
+}
+
+::view-transition-image-pair(root) {
+  isolation: isolate;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+
+  mix-blend-mode: normal;
+
+  animation-duration: 650ms;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+
+  clip-path: circle(0px at var(--theme-x) var(--theme-y));
+
+  animation:
+    myfolks-theme-reveal 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes myfolks-theme-reveal {
+  from {
+    clip-path: circle(0px at var(--theme-x) var(--theme-y));
+  }
+
+  to {
+    clip-path:
+      circle(var(--theme-radius) at var(--theme-x) var(--theme-y));
+  }
+}
+
+/* ---------- Fallback radial ---------- */
+
+.theme-radial {
+  position: fixed;
+
+  left: var(--theme-x);
+  top: var(--theme-y);
+
+  width: 2px;
+  height: 2px;
+
+  border-radius: 50%;
+
+  pointer-events: none;
+
+  z-index: 99999;
+
+  transform: translate(-50%, -50%) scale(0);
+
+  will-change: transform;
+
+  animation:
+    theme-radial-fallback 650ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.theme-radial-dark {
+  background: #151319;
+}
+
+.theme-radial-light {
+  background: #fffaf4;
+}
+
+@keyframes theme-radial-fallback {
+  from {
+    transform: translate(-50%, -50%) scale(0);
+  }
+
+  to {
+    transform: translate(-50%, -50%) scale(3000);
+  }
+}
+
+html.supports-view-transition .theme-radial {
+  display: none;
+}
+
+/* ---------- Colour crossfade ---------- */
+
+body,
+.site-header,
+.app-shell,
+.profile-card,
+.friend-card,
+.friend-requests-section,
+.friend-request-card,
+.messages-shell,
+.profile-form,
+.settings-form,
+.safety-card,
+.current-profile-card,
+.state-card,
+.progress-card,
+.insufficient-card,
+.completion-modal,
+.confirm-modal,
+.photo-dropzone,
+.photo-placeholder,
+.photo-icon,
+.conversation-item,
+.message-thread,
+.message-composer,
+.attachment-preview,
+input,
+textarea,
+select {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+
+    animation-iteration-count: 1 !important;
+
+    transition-duration: 0.01ms !important;
+
+    scroll-behavior: auto !important;
+  }
+
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.01ms !important;
+  }
+
+  .interest-bubble-reveal,
+  .interest-bubble-check {
+    opacity: 1;
+
+    transform: none;
+  }
+}

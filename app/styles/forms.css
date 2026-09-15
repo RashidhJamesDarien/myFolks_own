@@ -1,0 +1,111 @@
+/* =========================================================
+   FORM SHELLS & FIELDS
+   ========================================================= */
+
+.profile-form,
+.settings-form,
+.safety-card,
+.current-profile-card {
+  width: min(100%, 46rem);
+
+  margin: 2rem auto 0;
+
+  padding: 1.75rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 2rem;
+
+  background: var(--surface);
+
+  box-shadow: var(--shadow);
+}
+
+.form-grid {
+  display: grid;
+
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  gap: 1.25rem;
+}
+
+.field {
+  min-width: 0;
+}
+
+.field.full {
+  grid-column: 1 / -1;
+}
+
+.field label {
+  display: block;
+
+  margin-bottom: 0.5rem;
+
+  font-weight: 600;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+
+  padding: 0.75rem 1rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 0.8rem;
+
+  background: var(--surface);
+
+  outline: none;
+}
+
+.field input:focus,
+.field textarea:focus {
+  box-shadow: var(--focus-ring);
+}
+
+.consent-box {
+  display: flex;
+  align-items: flex-start;
+
+  gap: 0.75rem;
+
+  margin-top: 1.25rem;
+
+  padding: 1rem;
+
+  border-radius: 0.8rem;
+
+  background: var(--surface-warm);
+
+  font-weight: 600;
+
+  line-height: 1.5;
+}
+
+.consent-box input {
+  margin-top: 0.25rem;
+
+  accent-color: var(--coral);
+}
+
+@media (max-width: 760px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .field.full,
+  .photo-section {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-form,
+  .settings-form,
+  .safety-card,
+  .current-profile-card {
+    padding: 1.25rem;
+  }
+}

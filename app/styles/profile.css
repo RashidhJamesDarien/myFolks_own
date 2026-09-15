@@ -1,0 +1,317 @@
+/* =========================================================
+   PROFILE PHOTO & PROFILE CARD
+   ========================================================= */
+
+.profile-identity-section {
+  grid-column: 1 / -1;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 0.25rem 0 0.5rem;
+
+  text-align: center;
+}
+
+.profile-photo-button {
+  width: 84px;
+  height: 84px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 auto;
+
+  padding: 0;
+
+  border: 0;
+
+  border-radius: 50%;
+
+  overflow: hidden;
+
+  background: transparent;
+
+  cursor: pointer;
+
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.profile-photo-button:hover {
+  transform: translateY(-2px);
+
+  box-shadow: 0 10px 24px rgba(55, 40, 31, 0.12);
+}
+
+html[data-theme="dark"] .profile-photo-button:hover {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.profile-photo-button:active {
+  transform: scale(0.96);
+}
+
+.profile-photo-button:focus-visible {
+  outline: none;
+
+  box-shadow: var(--focus-ring);
+}
+
+.profile-photo-circle,
+.profile-photo-placeholder {
+  width: 84px;
+  height: 84px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+
+  overflow: hidden;
+}
+
+.profile-photo-circle {
+  object-fit: cover;
+}
+
+.profile-photo-placeholder {
+  border: 1px solid var(--line);
+
+  background: linear-gradient(135deg, #f8d5ca, #e8ddfb);
+
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .profile-photo-placeholder {
+  background: linear-gradient(135deg, #352321, #282239);
+}
+
+.profile-photo-hint {
+  margin: 0.55rem 0 0;
+
+  color: var(--muted);
+
+  font-size: 0.78rem;
+}
+
+.remove-profile-photo {
+  margin-top: 0.35rem;
+
+  padding: 0.15rem 0.4rem;
+
+  border: 0;
+
+  background: transparent;
+
+  color: var(--muted);
+
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.remove-profile-photo:hover {
+  color: var(--danger);
+
+  text-decoration: underline;
+}
+
+/* ---------- Current profile card ---------- */
+
+.current-profile-card {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-start;
+
+  gap: 0.75rem;
+}
+
+.current-profile-card h2 {
+  margin: 0;
+
+  font-size: 1.5rem;
+}
+
+.current-profile-card strong {
+  font-size: 1.05rem;
+}
+
+.current-profile-card p {
+  margin: 0;
+
+  color: var(--muted);
+
+  line-height: 1.7;
+}
+
+.visibility-pill {
+  margin-top: 0.25rem;
+
+  padding: 0.7rem 0.9rem;
+
+  border-radius: 0.8rem;
+
+  background: var(--surface-warm);
+
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .profile-photo-button,
+  .profile-photo-circle,
+  .profile-photo-placeholder {
+    width: 76px;
+    height: 76px;
+  }
+}
+
+/* =========================================================
+   LEGACY PHOTO DROPZONE
+   Retained for the older upload markup; safe to delete once
+   nothing renders .photo-dropzone.
+   ========================================================= */
+
+.photo-section {
+  grid-column: 1 / -1;
+}
+
+.photo-heading {
+  display: flex;
+
+  gap: 0.75rem;
+}
+
+.photo-icon {
+  width: 44px;
+  height: 44px;
+
+  flex: 0 0 auto;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 1rem;
+
+  background: var(--surface-info);
+
+  color: var(--purple);
+}
+
+.photo-heading h2 {
+  margin: 0;
+
+  font-size: 1.2rem;
+}
+
+.photo-heading p {
+  margin: 0.25rem 0 0;
+
+  color: var(--muted);
+
+  font-size: 0.9rem;
+
+  line-height: 1.5;
+}
+
+.photo-dropzone {
+  min-height: 300px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  justify-content: center;
+
+  margin-top: 1.25rem;
+
+  padding: 2rem;
+
+  border: 2px dashed #d7caec;
+
+  border-radius: 2rem;
+
+  background: var(--paper);
+
+  text-align: center;
+
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+html[data-theme="dark"] .photo-dropzone {
+  background: var(--surface-raised);
+  border-color: #51456b;
+}
+
+.photo-dropzone:hover {
+  border-color: var(--coral);
+
+  transform: translateY(-1px);
+}
+
+.photo-placeholder {
+  width: 140px;
+  height: 140px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 2rem;
+
+  background: var(--surface-info);
+
+  color: var(--purple);
+}
+
+.photo-dropzone > p {
+  margin: 1rem 0;
+
+  font-weight: 600;
+}
+
+.photo-dropzone > span {
+  margin-top: 0.8rem;
+
+  color: var(--muted);
+
+  font-size: 0.85rem;
+}
+
+.profile-photo-preview {
+  width: 160px;
+  height: 160px;
+
+  border-radius: 2rem;
+
+  object-fit: cover;
+
+  box-shadow: 0 12px 30px rgba(55, 40, 31, 0.12);
+}
+
+.photo-actions {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  justify-content: center;
+
+  gap: 0.75rem;
+
+  margin-top: 1rem;
+}

@@ -1,0 +1,250 @@
+/* =========================================================
+   MODALS — COMPLETION & CONFIRM
+   (The completion block appeared three times in the original
+   stylesheet; this is the single copy.)
+   ========================================================= */
+
+.modal-backdrop {
+  position: fixed;
+
+  inset: 0;
+
+  z-index: 100;
+
+  display: grid;
+
+  place-items: center;
+
+  padding: 1rem;
+
+  background: rgba(37, 33, 31, 0.42);
+
+  animation: fade-in 0.2s ease both;
+}
+
+.completion-modal,
+.confirm-modal {
+  width: min(92vw, 530px);
+
+  padding: 2rem;
+
+  border-radius: 2rem;
+
+  background: var(--surface);
+
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.22);
+
+  text-align: center;
+
+  animation: modal-in 0.22s ease both;
+}
+
+html[data-theme="dark"] .completion-modal,
+html[data-theme="dark"] .confirm-modal {
+  border: 1px solid var(--line);
+}
+
+.completion-icon {
+  width: 58px;
+  height: 58px;
+
+  display: grid;
+  place-items: center;
+
+  margin: 0 auto;
+
+  border-radius: 1rem;
+
+  background: var(--surface-warm);
+
+  color: var(--coral);
+}
+
+.completion-modal h2,
+.confirm-modal h2 {
+  margin: 1.25rem 0 0;
+
+  font-size: 1.55rem;
+}
+
+.completion-modal p,
+.confirm-modal p {
+  margin: 0.75rem 0 0;
+
+  color: var(--muted);
+
+  line-height: 1.7;
+}
+
+.completion-actions,
+.dialog-actions {
+  display: flex;
+
+  flex-wrap: wrap;
+
+  justify-content: center;
+
+  gap: 0.75rem;
+
+  margin-top: 1.5rem;
+}
+
+.confirm-modal {
+  text-align: left;
+}
+
+.dialog-actions {
+  justify-content: flex-end;
+}
+
+/* ---------- Matched profile ---------- */
+
+.completion-intro {
+  max-width: 520px;
+
+  margin: 0 auto 22px;
+}
+
+.completion-profile {
+  display: flex;
+  align-items: center;
+
+  gap: 18px;
+
+  width: 100%;
+  max-width: 520px;
+
+  margin: 8px auto 26px;
+
+  padding: 18px;
+
+  border: 1px solid var(--line);
+
+  border-radius: 22px;
+
+  background: var(--mist);
+
+  text-align: left;
+}
+
+.completion-profile-photo {
+  width: 96px;
+  height: 96px;
+
+  flex: 0 0 96px;
+
+  overflow: hidden;
+
+  border-radius: 50%;
+
+  background: var(--lavender);
+}
+
+.completion-profile-image {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+}
+
+.completion-profile-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 100%;
+  height: 100%;
+
+  color: var(--purple-text);
+}
+
+.completion-profile-details {
+  min-width: 0;
+}
+
+.completion-profile-details h3 {
+  margin: 0;
+
+  color: var(--ink);
+
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.completion-username {
+  margin: 5px 0 0;
+
+  color: var(--muted);
+
+  font-size: 0.92rem;
+}
+
+.completion-interest {
+  margin: 10px 0 0;
+
+  color: var(--purple-text);
+
+  font-weight: 700;
+  font-size: 0.94rem;
+}
+
+.completion-bio {
+  margin: 9px 0 0;
+
+  color: var(--muted);
+
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.completion-location {
+  margin: 8px 0 0;
+
+  color: var(--muted);
+
+  font-size: 0.86rem;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 600px) {
+  .completion-profile {
+    align-items: flex-start;
+
+    gap: 14px;
+
+    padding: 15px;
+  }
+
+  .completion-profile-photo {
+    width: 76px;
+    height: 76px;
+
+    flex-basis: 76px;
+  }
+
+  .completion-profile-details h3 {
+    font-size: 1.15rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .completion-modal,
+  .confirm-modal {
+    padding: 1.5rem;
+  }
+}

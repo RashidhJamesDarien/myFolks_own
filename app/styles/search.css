@@ -1,0 +1,154 @@
+/* =========================================================
+   SEARCH FIELD & PROFILE SEARCH RESULTS
+   ========================================================= */
+
+.search-field {
+  width: min(100%, 36rem);
+
+  margin-top: 1.75rem;
+}
+
+.search-field label {
+  display: block;
+
+  margin-bottom: 0.5rem;
+
+  font-weight: 600;
+}
+
+.search-input-wrap {
+  position: relative;
+
+  display: flex;
+  align-items: center;
+}
+
+.search-input-wrap > svg {
+  position: absolute;
+
+  left: 1rem;
+
+  color: var(--muted);
+}
+
+.search-input-wrap input {
+  width: 100%;
+
+  min-height: 48px;
+
+  padding: 0.75rem 3rem;
+
+  border: 1px solid var(--line);
+
+  border-radius: 0.8rem;
+
+  background: var(--surface);
+
+  outline: none;
+}
+
+html[data-theme="dark"] .search-input-wrap input {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+
+.search-input-wrap input:focus {
+  box-shadow: var(--focus-ring);
+}
+
+.search-input-wrap button {
+  position: absolute;
+
+  right: 0.45rem;
+
+  width: 36px;
+  height: 36px;
+
+  display: grid;
+  place-items: center;
+
+  border: 0;
+
+  border-radius: 0.6rem;
+
+  background: transparent;
+}
+
+html[data-theme="dark"] .search-input-wrap button {
+  color: var(--muted);
+}
+
+.search-input-wrap input[type="search"]::-webkit-search-cancel-button,
+.search-input-wrap input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-field-spacer {
+  height: 0.25rem;
+}
+
+/* ---------- Result cards ---------- */
+
+.profile-search-results {
+  margin-top: 2rem;
+}
+
+.profile-search-grid {
+  margin-top: 1rem;
+}
+
+.profile-search-card {
+  align-items: center;
+}
+
+.profile-search-card-content {
+  min-width: 0;
+
+  flex: 1;
+}
+
+.profile-search-card-content h2 {
+  margin-bottom: 0.25rem;
+}
+
+.profile-search-card-content p {
+  margin: 0.2rem 0;
+}
+
+.profile-search-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+
+  flex-wrap: wrap;
+
+  gap: 0.6rem;
+}
+
+.profile-search-actions .button {
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .profile-search-card {
+    align-items: flex-start;
+  }
+
+  .profile-search-actions {
+    width: 100%;
+
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .profile-search-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .profile-search-actions .button {
+    width: 100%;
+  }
+}
